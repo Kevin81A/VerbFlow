@@ -1291,7 +1291,39 @@ const TENSES_DATA = [
   }
 ];
 
+// Helper para obtener y mezclar preguntas según temas y cantidad deseada
+function getQuestionsForTopics(topicIds, count) {
+  let pool = [];
+  const selectedTenses = TENSES_DATA.filter(t => topicIds.includes(t.id));
+  
+  selectedTenses.forEach(t => {
+    if (t.exercises && t.exercises.length > 0) {
+      // Agregar información del tema a cada ejercicio
+      const enriched = t.exercises.map(ex => ({
+        ...ex,
+        tenseId: t.id,
+        tenseName: t.name
+      }));
+      pool = pool.concat(enriched);
+    }
+  });
+
+  // Mezclar aleatoriamente (Fisher-Yates)
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  const desiredCount = parseInt(count, 10) || pool.length;
+  if (desiredCount >= pool.length) {
+    return pool;
+  }
+  return pool.slice(0, desiredCount);
+}
+
 // Hacer disponible globalmente
 if (typeof window !== "undefined") {
   window.TENSES_DATA = TENSES_DATA;
+  window.getQuestionsForTopics = getQuestionsForTopics;
 }
+

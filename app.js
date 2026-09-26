@@ -1,21 +1,28 @@
 // ========================================================
-// VerbFlow - Application Engine
-// Control de Modos (Estudio / Práctica), Pronunciación de Audio,
-// Motor de Ejercicios y Persistencia Local
+// VerbFlow - Application Engine (Actualizado)
+// Control de Modos (Estudio / Práctica), Evaluaciones a Medida,
+// Generación de Boletas en Imagen (0-100), Roles (TheKeas, Teachers, Alumnos)
 // ========================================================
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Estado Global
+  // Estado Global de la Aplicación
   const state = {
     currentTenseId: "present-continuous",
-    currentMode: "study", // 'study' | 'practice'
+    currentMode: "study", // 'study' | 'practice' | 'custom-exam'
     currentStructTab: "affirmative",
     practiceIndex: 0,
     practiceScore: 0,
-    practiceTotal: 0,
+    practiceQuestions: [], // Banco activo de preguntas
+    isCustomExam: false,
+    customExamInfo: {
+      topics: [],
+      topicsLabel: "",
+      classCode: null
+    },
     isAnswerChecked: false,
     selectedScramble: [],
     availableScramble: [],
+    selectedQuestionCount: 5,
     userStats: {
       xp: 0,
       streak: 0,
@@ -23,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Cargar estadísticas de LocalStorage
+  // Cargar estadísticas
   function loadStats() {
     const saved = localStorage.getItem("verbflow_stats");
     if (saved) {
@@ -49,24 +56,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (streakEl) streakEl.textContent = `🔥 ${state.userStats.streak || 0}`;
   }
 
-  // Sintetizador de voz en inglés nativo
+  // Sintetizador de voz nativo en inglés
   function speakEnglish(text, btnElement) {
     if (!("speechSynthesis" in window)) {
-      alert("Tu navegador no soporta reproducción de voz por speech API.");
+      alert("Tu navegador no soporta síntesis de voz.");
       return;
     }
 
-    window.speechSynthesis.cancel(); // Detener anteriores
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "en-US";
-    utterance.rate = 0.88; // Velocidad pedagógica clara
+    utterance.rate = 0.88;
 
-    // Seleccionar una voz nativa en inglés si está disponible
     const voices = window.speechSynthesis.getVoices();
     const englishVoice = voices.find(v => v.lang.startsWith("en-US") || v.lang.startsWith("en-GB") || v.lang.startsWith("en"));
-    if (englishVoice) {
-      utterance.voice = englishVoice;
-    }
+    if (englishVoice) utterance.voice = englishVoice;
 
     if (btnElement) {
       btnElement.classList.add("speaking");
@@ -77,9 +81,86 @@ document.addEventListener("DOMContentLoaded", () => {
     window.speechSynthesis.speak(utterance);
   }
 
-  // Obtener tiempo verbal activo
   function getCurrentTense() {
     return window.TENSES_DATA.find(t => t.id === state.currentTenseId) || window.TENSES_DATA[0];
+  }
+
+  // ========================================================
+  // SISTEMA DE AUTENTICACIÓN Y CABECERA DE USUARIO
+  // ========================================================
+  function renderUserHeader() {
+    const container = document.getElementById("user-auth-container");
+    const ownerNotifBtn = document.getElementById("owner-notif-btn");
+    const ownerNotifCount = document.getElementById("owner-notif-count");
+    const teacherSuiteBtn = document.getElementById("teacher-suite-btn");
+
+    if (!container) return;
+
+    const currentUser = window.AuthManager.getCurrentUser();
+
+    if (!currentUser) {
+      container.innerHTML = `
+        <button class="login-trigger-btn" id="open-auth-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Ingresar / Registrarse
+        </button>
+      `;
+
+      if (ownerNotifBtn) ownerNotifBtn.style.display = "none";
+      if (teacherSuiteBtn) teacherSuiteBtn.style.display = "none";
+
+      document.getElementById("open-auth-btn")?.addEventListener("click", () => {
+        openAuthModal();
+      });
+      return;
+    }
+
+    // Usuario logeado
+    let roleClass = "role-student";
+    let roleText = "🎓 Alumno";
+
+    if (currentUser.role === "owner") {
+      roleClass = "role-owner";
+      roleText = "👑 Owner";
+    } else if (currentUser.role === "teacher") {
+      roleClass = "role-teacher";
+      roleText = "👨‍🏫 Teacher";
+    }
+
+    container.innerHTML = `
+      <div class="user-profile-badge">
+        <strong>${currentUser.nick}</strong>
+        <span class="user-role-tag ${roleClass}">${roleText}</span>
+        <button class="logout-icon-btn" id="logout-btn" title="Cerrar sesión">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
+      </div>
+    `;
+
+    document.getElementById("logout-btn")?.addEventListener("click", () => {
+      window.AuthManager.logout();
+      renderUserHeader();
+      renderSidebar();
+    });
+
+    // Control de campana de notificaciones para TheKeas (Owner)
+    if (currentUser.role === "owner") {
+      const pendingTeachers = window.AuthManager.getPendingTeachers();
+      if (ownerNotifBtn && ownerNotifCount) {
+        ownerNotifBtn.style.display = "flex";
+        ownerNotifCount.textContent = pendingTeachers.length;
+        ownerNotifCount.style.display = pendingTeachers.length > 0 ? "flex" : "none";
+      }
+    } else if (ownerNotifBtn) {
+      ownerNotifBtn.style.display = "none";
+    }
+
+    // Control del botón de Panel Docente (Visible para Teacher y Owner)
+    if (currentUser.role === "teacher" || currentUser.role === "owner") {
+      if (teacherSuiteBtn) teacherSuiteBtn.style.display = "flex";
+    } else if (teacherSuiteBtn) {
+      teacherSuiteBtn.style.display = "none";
+    }
   }
 
   // ========================================================
@@ -108,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
       sidebarContent.appendChild(catLabel);
 
       items.forEach(tense => {
-        const isCurrent = tense.id === state.currentTenseId;
+        const isCurrent = tense.id === state.currentTenseId && !state.isCustomExam;
         const isCompleted = state.userStats.completedTenses[tense.id];
 
         const btn = document.createElement("button");
@@ -128,6 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         btn.addEventListener("click", () => {
           state.currentTenseId = tense.id;
+          state.isCustomExam = false;
           state.practiceIndex = 0;
           state.practiceScore = 0;
           state.isAnswerChecked = false;
@@ -136,10 +218,9 @@ document.addEventListener("DOMContentLoaded", () => {
           if (state.currentMode === "study") {
             renderStudyMode();
           } else {
-            renderPracticeMode();
+            initSingleTensePractice();
           }
 
-          // Cerrar sidebar en móviles
           document.querySelector(".sidebar")?.classList.remove("open");
         });
 
@@ -156,17 +237,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const titleEl = document.getElementById("header-tense-title");
     const badgeEl = document.getElementById("header-tense-badge");
 
-    if (titleEl) {
-      titleEl.innerHTML = `${current.name} <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">(${current.nameEs})</span>`;
-    }
-    if (badgeEl) {
-      badgeEl.textContent = current.badge;
-      badgeEl.style.backgroundColor = `${current.tagColor}22`;
-      badgeEl.style.color = current.tagColor;
-      badgeEl.style.border = `1px solid ${current.tagColor}55`;
+    if (state.isCustomExam) {
+      if (titleEl) {
+        titleEl.innerHTML = `🎯 Evaluación Personalizada <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">${state.customExamInfo.topicsLabel || ""}</span>`;
+      }
+      if (badgeEl) {
+        badgeEl.textContent = "Examen Oficial (0-100)";
+        badgeEl.style.backgroundColor = "rgba(245, 158, 11, 0.2)";
+        badgeEl.style.color = "#fbbf24";
+        badgeEl.style.border = "1px solid rgba(245, 158, 11, 0.5)";
+      }
+    } else {
+      if (titleEl) {
+        titleEl.innerHTML = `${current.name} <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">(${current.nameEs})</span>`;
+      }
+      if (badgeEl) {
+        badgeEl.textContent = current.badge;
+        badgeEl.style.backgroundColor = `${current.tagColor}22`;
+        badgeEl.style.color = current.tagColor;
+        badgeEl.style.border = `1px solid ${current.tagColor}55`;
+      }
     }
 
-    // Actualizar tabs de estudio vs práctica
     document.querySelectorAll(".mode-tab-btn").forEach(btn => {
       const mode = btn.dataset.mode;
       if (mode === state.currentMode) {
@@ -175,18 +267,36 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.classList.remove("active");
       }
     });
+
+    renderUserHeader();
   }
 
   // ========================================================
-  // MODO ESTUDIO: TEORÍA, LÍNEA DE TIEMPO, FÓRMULAS, REGLAS
+  // MODO ESTUDIO
   // ========================================================
   function renderStudyMode() {
+    state.isCustomExam = false;
     const container = document.getElementById("main-view-container");
     const tense = getCurrentTense();
     const study = tense.study;
 
     container.innerHTML = `
       <div class="fade-in">
+        <!-- Banner de Examen Personalizado -->
+        <div class="custom-exam-launch-banner">
+          <div>
+            <h3 style="font-family:var(--font-display); font-size:1.3rem; font-weight:800; color:#fbbf24; margin-bottom:4px;">
+              ¿Quieres medir tu nivel y obtener tu boleta de 0 a 100?
+            </h3>
+            <p style="color:var(--text-secondary); font-size:0.9rem;">
+              Presenta una prueba de este tema individual, selecciona varios o haz un examen global.
+            </p>
+          </div>
+          <button class="custom-exam-launch-btn" id="study-banner-exam-btn">
+            🎯 Configurar Examen a Medida
+          </button>
+        </div>
+
         <!-- Hero Card con Concepto -->
         <div class="study-hero-card">
           <div class="study-hero-header">
@@ -196,7 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
 
-          <!-- Línea de tiempo visual interactiva -->
+          <!-- Línea de tiempo visual -->
           <div class="timeline-container">
             <div class="timeline-title">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -256,7 +366,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        <!-- Fórmulas y Estructuras Gramaticales (+ / - / ?) -->
+        <!-- Fórmulas y Estructuras -->
         <div class="study-section">
           <h3 class="section-heading">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
@@ -275,12 +385,10 @@ document.addEventListener("DOMContentLoaded", () => {
             </button>
           </div>
 
-          <div id="structure-content-box">
-            <!-- Se inyecta dinámicamente según la pestaña seleccionada -->
-          </div>
+          <div id="structure-content-box"></div>
         </div>
 
-        <!-- Reglas Ortográficas y Secretos Clave -->
+        <!-- Reglas Clave -->
         <div class="study-section">
           <h3 class="section-heading">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
@@ -302,15 +410,12 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        <!-- Palabras Clave / Marcadores Temporales -->
+        <!-- Palabras Clave -->
         <div class="study-section">
           <h3 class="section-heading">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
             Marcadores de Tiempo (Time Markers)
           </h3>
-          <p style="color:var(--text-secondary); margin-bottom:12px; font-size:0.9rem;">
-            Cuando veas estas palabras en una oración o conversación, sabrás de inmediato qué tiempo verbal usar:
-          </p>
           <div class="time-markers-grid">
             ${study.timeMarkers.map(tm => `
               <div class="time-marker-pill">
@@ -321,68 +426,31 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        <!-- Comparativa Versus si existe -->
-        ${study.versus && study.versus.comparison.length > 0 ? `
-          <div class="study-section">
-            <h3 class="section-heading">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-              ${study.versus.title}
-            </h3>
-            <div class="versus-card">
-              <p style="color:var(--text-secondary);">${study.versus.desc}</p>
-              <table class="versus-table">
-                <thead>
-                  <tr>
-                    <th>Aspecto</th>
-                    <th>Comparación Directa</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${study.versus.comparison.map(c => `
-                    <tr>
-                      <td style="font-weight:700; color:#60a5fa;">${c.aspect}</td>
-                      <td>
-                        <div style="margin-bottom:4px;">${c.tenseA}</div>
-                        <div style="color:var(--text-secondary);">${c.tenseB}</div>
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ` : ''}
-
-        <!-- Banner para pasar a la práctica -->
+        <!-- Banner para pasar a la práctica del tema -->
         <div class="go-practice-banner">
           <div>
             <h3 style="font-family:var(--font-display); font-size:1.4rem; font-weight:800; margin-bottom:4px;">
-              ¿Listo para poner a prueba lo aprendido?
+              ¿Listo para practicar este tema?
             </h3>
             <p style="color:var(--text-secondary); font-size:0.95rem;">
-              Tienes ${tense.exercises.length} ejercicios interactivos diseñados para afianzar este tiempo verbal.
+              Ejercicios prácticos con retroalimentación inmediata para ${tense.name}.
             </p>
           </div>
           <button class="go-practice-btn" id="start-practice-btn">
-            ¡Ir a la Práctica Ahora!
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            ¡Practicar ${tense.name}! ➔
           </button>
         </div>
       </div>
     `;
 
-    // Renderizar pestaña activa de estructuras
     renderStructureTab();
 
-    // Eventos de botones de audio
     container.querySelectorAll(".audio-btn").forEach(btn => {
       btn.addEventListener("click", () => {
-        const text = btn.dataset.audio;
-        speakEnglish(text, btn);
+        speakEnglish(btn.dataset.audio, btn);
       });
     });
 
-    // Eventos de pestañas de fórmulas (+, -, ?)
     container.querySelectorAll(".struct-tab-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         container.querySelectorAll(".struct-tab-btn").forEach(b => b.classList.remove("active"));
@@ -392,16 +460,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // Evento botón de inicio de práctica
-    const practiceBtn = document.getElementById("start-practice-btn");
-    if (practiceBtn) {
-      practiceBtn.addEventListener("click", () => {
-        switchMode("practice");
-      });
-    }
+    document.getElementById("start-practice-btn")?.addEventListener("click", () => {
+      initSingleTensePractice();
+    });
+
+    document.getElementById("study-banner-exam-btn")?.addEventListener("click", () => {
+      openCustomExamModal();
+    });
   }
 
-  // Renderizar la caja de estructura (+, -, ?)
   function renderStructureTab() {
     const box = document.getElementById("structure-content-box");
     if (!box) return;
@@ -454,14 +521,61 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // MODO PRÁCTICA: EJERCICIOS INTERACTIVOS CON FEEDBACK
+  // INICIADORES DE PRÁCTICA (Individual o Examen a Medida)
+  // ========================================================
+  function initSingleTensePractice() {
+    const tense = getCurrentTense();
+    state.isCustomExam = false;
+    state.practiceQuestions = [...tense.exercises];
+    state.practiceIndex = 0;
+    state.practiceScore = 0;
+    state.isAnswerChecked = false;
+    switchMode("practice");
+  }
+
+  function startCustomExam(topics, questionCount, classCode = null) {
+    const questions = window.getQuestionsForTopics(topics, questionCount);
+    if (!questions || questions.length === 0) {
+      alert("No se encontraron preguntas para los temas seleccionados.");
+      return;
+    }
+
+    state.isCustomExam = true;
+    state.practiceQuestions = questions;
+    state.practiceIndex = 0;
+    state.practiceScore = 0;
+    state.isAnswerChecked = false;
+
+    // Obtener nombres de los temas seleccionados
+    const topicNames = window.TENSES_DATA.filter(t => topics.includes(t.id)).map(t => t.name);
+    state.customExamInfo = {
+      topics: topics,
+      topicsLabel: topicNames.join(", "),
+      classCode: classCode
+    };
+
+    switchMode("practice");
+    renderHeader();
+  }
+
+  // ========================================================
+  // MOTOR DE PRÁCTICA Y EJERCICIOS
   // ========================================================
   function renderPracticeMode() {
     const container = document.getElementById("main-view-container");
-    const tense = getCurrentTense();
-    const exercises = tense.exercises;
+    const exercises = state.practiceQuestions;
 
-    // Si ya completó todos los ejercicios de este tiempo verbal
+    if (exercises.length === 0) {
+      container.innerHTML = `
+        <div class="exercise-card fade-in" style="text-align:center; padding:40px;">
+          <h3>No hay preguntas cargadas.</h3>
+          <p style="color:var(--text-secondary); margin:12px 0;">Selecciona un tema o configura un examen personalizado.</p>
+          <button class="go-practice-btn" onclick="document.getElementById('open-custom-exam').click();">Configurar Examen</button>
+        </div>
+      `;
+      return;
+    }
+
     if (state.practiceIndex >= exercises.length) {
       renderPracticeResults();
       return;
@@ -476,7 +590,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     container.innerHTML = `
       <div class="practice-container fade-in">
-        <!-- Barra de Progreso Superior -->
         <div class="practice-header-bar">
           <div class="progress-track">
             <div class="progress-fill" style="width: ${progressPercent}%;"></div>
@@ -486,18 +599,18 @@ document.addEventListener("DOMContentLoaded", () => {
           </span>
         </div>
 
-        <!-- Tarjeta del Ejercicio -->
         <div class="exercise-card">
-          <span class="exercise-type-tag">
-            ${getExerciseTypeName(currentEx.type)}
-          </span>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span class="exercise-type-tag">
+              ${getExerciseTypeName(currentEx.type)}
+            </span>
+            ${currentEx.tenseName ? `<span style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">${currentEx.tenseName}</span>` : ''}
+          </div>
 
           <h2 class="exercise-prompt">${currentEx.question}</h2>
 
-          <!-- Área dinámica según el tipo de ejercicio -->
           <div id="exercise-interactive-area"></div>
 
-          <!-- Banner de Feedback / Explicación inmediata -->
           <div class="feedback-banner" id="feedback-banner">
             <div class="feedback-header">
               <span class="feedback-title" id="feedback-title"></span>
@@ -588,7 +701,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Lógica de Ordenar Fichas (Scramble)
   function renderScrambleZones(ex) {
     const area = document.getElementById("exercise-interactive-area");
     if (!area) return;
@@ -620,7 +732,6 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
-    // Clic en palabra del banco para agregarla
     area.querySelectorAll("#scramble-bank .word-chip").forEach(btn => {
       btn.addEventListener("click", () => {
         if (state.isAnswerChecked) return;
@@ -631,7 +742,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // Clic en palabra elegida para devolverla al banco
     area.querySelectorAll("#scramble-target .word-chip").forEach(btn => {
       btn.addEventListener("click", () => {
         if (state.isAnswerChecked) return;
@@ -642,7 +752,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // Reiniciar
     document.getElementById("scramble-reset-btn")?.addEventListener("click", () => {
       if (state.isAnswerChecked) return;
       state.availableScramble = [...ex.tokens];
@@ -650,7 +759,6 @@ document.addEventListener("DOMContentLoaded", () => {
       renderScrambleZones(ex);
     });
 
-    // Comprobar
     document.getElementById("scramble-submit-btn")?.addEventListener("click", () => {
       if (state.isAnswerChecked || state.selectedScramble.length === 0) return;
       const isCorrect = JSON.stringify(state.selectedScramble) === JSON.stringify(ex.solution);
@@ -704,7 +812,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     explanationEl.innerHTML = formatMarkdownBold(ex.explanation);
 
-    // Audio disponible
     const textToSpeak = ex.audio || (ex.solution ? ex.solution.join(" ") : null);
     if (textToSpeak && audioBtn) {
       audioBtn.style.display = "flex";
@@ -722,65 +829,115 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // RESULTADOS DE LA PRÁCTICA
+  // RESULTADOS DE EVALUACIÓN (CALIFICACIÓN 0 - 100 Y BOLETA)
   // ========================================================
   function renderPracticeResults() {
     const container = document.getElementById("main-view-container");
-    const tense = getCurrentTense();
-    const total = tense.exercises.length;
-    const score = state.practiceScore;
-    const percent = Math.round((score / total) * 100);
+    const total = state.practiceQuestions.length;
+    const correct = state.practiceScore;
+    const incorrect = Math.max(0, total - correct);
+    const score100 = Math.round((correct / total) * 100);
 
-    // Marcar como completado si sacó más del 60%
-    if (percent >= 60) {
-      state.userStats.completedTenses[tense.id] = true;
-      state.userStats.xp += 50; // Bonus por completar
+    const currentUser = window.AuthManager.getCurrentUser();
+    const studentNick = currentUser ? currentUser.nick : "Estudiante";
+
+    // Registrar en tiempo real en la base de datos
+    const topicsLabel = state.isCustomExam 
+      ? state.customExamInfo.topicsLabel 
+      : getCurrentTense().name;
+
+    window.AuthManager.recordSubmission({
+      classCode: state.customExamInfo.classCode || (state.isCustomExam ? "PERSONALIZADO" : "PRACTICA_LIBRE"),
+      studentNick: studentNick,
+      score: score100,
+      correctCount: correct,
+      totalQuestions: total,
+      topics: state.isCustomExam ? state.customExamInfo.topics : [state.currentTenseId]
+    });
+
+    if (score100 >= 60) {
+      if (!state.isCustomExam) {
+        state.userStats.completedTenses[state.currentTenseId] = true;
+      }
+      state.userStats.xp += 50;
       saveStats();
     }
 
+    const badgeIcon = score100 >= 80 ? "🏆" : score100 >= 60 ? "⭐" : "💡";
+    const statusFeedback = score100 >= 80 
+      ? "¡Extraordinario dominio! Has demostrado un entendimiento profundo." 
+      : score100 >= 60 
+      ? "¡Aprobado con buen desempeño! Vas por excelente camino." 
+      : "No te desanimes: repasa las fórmulas y vuelve a intentarlo.";
+
     container.innerHTML = `
       <div class="exercise-card results-modal fade-in">
-        <div class="results-badge-icon">
-          ${percent >= 80 ? "🏆" : percent >= 60 ? "⭐" : "💡"}
-        </div>
-        <h2 class="results-title">
-          ${percent >= 80 ? "¡Extraordinario dominio!" : percent >= 60 ? "¡Buen trabajo, vas por excelente camino!" : "¡Sigue practicando, cada intento cuenta!"}
-        </h2>
+        <div class="results-badge-icon">${badgeIcon}</div>
+        <h2 class="results-title">${statusFeedback}</h2>
         
-        <div class="results-score-big">${score} / ${total}</div>
-        <p style="font-weight:700; color:var(--text-muted); font-size:1.1rem;">${percent}% de aciertos</p>
+        <!-- Puntuación Central 0 / 100 -->
+        <div style="background:var(--bg-primary); border:2px solid ${score100 >= 60 ? '#10b981' : '#f43f5e'}; border-radius:var(--radius-lg); padding:20px 40px; margin:12px 0;">
+          <span style="font-size:0.85rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); font-weight:700;">
+            Calificación Obtenida:
+          </span>
+          <div class="results-score-big" style="color:${score100 >= 60 ? '#34d399' : '#fb7185'};">
+            ${score100} <span style="font-size:1.6rem; color:var(--text-muted);">/ 100</span>
+          </div>
+          <span style="font-size:0.95rem; font-weight:800; color:${score100 >= 60 ? '#10b981' : '#f43f5e'};">
+            ${score100 >= 60 ? "APROBADO" : "REQUIERE REFUERZO"}
+          </span>
+        </div>
+
+        <!-- Métricas de Aciertos y Fallos -->
+        <div style="display:flex; gap:16px; margin-bottom:12px;">
+          <div class="stat-chip" style="color:#10b981;">✔ Aciertos: <strong>${correct}</strong></div>
+          <div class="stat-chip" style="color:#f43f5e;">✘ Fallos: <strong>${incorrect}</strong></div>
+          <div class="stat-chip" style="color:#60a5fa;">Total: <strong>${total}</strong></div>
+        </div>
 
         <p class="results-feedback-text">
-          ${percent >= 60 
-            ? `Has consolidado los conceptos esenciales de <strong>${tense.name}</strong>. ¡Ya puedes avanzar al siguiente tiempo verbal!`
-            : `Te recomendamos repasar la teoría y las fórmulas en el <strong>Modo Estudio</strong> antes de volver a intentarlo.`}
+          Estudiante: <strong>${studentNick}</strong> | Evaluación: <strong>${topicsLabel}</strong>
         </p>
 
-        <div class="results-actions-row">
-          <button class="btn-secondary" id="retry-practice-btn">
-            🔄 Repetir Ejercicios
+        <!-- Botones de Acción: Descargar Boleta en PNG y Opciones -->
+        <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:16px;">
+          <button class="download-cert-btn" id="download-cert-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            📥 Descargar Boleta Oficial (.PNG)
           </button>
-          <button class="go-practice-btn" id="back-study-btn">
+          <button class="btn-secondary" id="retry-exam-btn">
+            🔄 Repetir Prueba
+          </button>
+          <button class="btn-secondary" id="back-study-menu-btn">
             📖 Volver al Estudio
           </button>
         </div>
       </div>
     `;
 
-    document.getElementById("retry-practice-btn")?.addEventListener("click", () => {
+    // Evento de descarga de la boleta de calificación
+    document.getElementById("download-cert-btn")?.addEventListener("click", () => {
+      window.CertificateGenerator.downloadCertificate({
+        studentNick: studentNick,
+        score: score100,
+        correctCount: correct,
+        totalQuestions: total,
+        topicsName: topicsLabel,
+        classCode: state.customExamInfo.classCode
+      });
+    });
+
+    document.getElementById("retry-exam-btn")?.addEventListener("click", () => {
       state.practiceIndex = 0;
       state.practiceScore = 0;
       renderPracticeMode();
     });
 
-    document.getElementById("back-study-btn")?.addEventListener("click", () => {
+    document.getElementById("back-study-menu-btn")?.addEventListener("click", () => {
       switchMode("study");
     });
   }
 
-  // ========================================================
-  // CAMBIO DE MODO (ESTUDIO vs PRÁCTICA)
-  // ========================================================
   function switchMode(newMode) {
     state.currentMode = newMode;
     renderHeader();
@@ -791,7 +948,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Tabs superiores de cambio de modo
   document.querySelectorAll(".mode-tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       switchMode(btn.dataset.mode);
@@ -799,22 +955,525 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ========================================================
-  // TEMA OSCURO / CLARO
+  // MODAL DE AUTENTICACIÓN (LOGIN / REGISTRO)
   // ========================================================
-  const themeBtn = document.getElementById("theme-toggle-btn");
-  if (themeBtn) {
-    const savedTheme = localStorage.getItem("verbflow_theme") || "dark";
-    if (savedTheme === "light") document.body.classList.add("light-theme");
+  const authModal = document.getElementById("auth-modal");
+  const closeAuthModalBtn = document.getElementById("close-auth-modal");
+  const tabLoginBtn = document.getElementById("tab-login-btn");
+  const tabRegisterBtn = document.getElementById("tab-register-btn");
+  const roleSelectGroup = document.getElementById("role-select-group");
+  const authSubmitBtn = document.getElementById("auth-submit-btn");
+  const authErrorMsg = document.getElementById("auth-error-msg");
+  const authSuccessMsg = document.getElementById("auth-success-msg");
+  let isRegisterMode = false;
 
-    themeBtn.addEventListener("click", () => {
-      document.body.classList.toggle("light-theme");
-      const isLight = document.body.classList.contains("light-theme");
-      localStorage.setItem("verbflow_theme", isLight ? "light" : "dark");
+  function openAuthModal() {
+    isRegisterMode = false;
+    updateAuthModalTabs();
+    authErrorMsg.style.display = "none";
+    authSuccessMsg.style.display = "none";
+    document.getElementById("auth-nick").value = "";
+    document.getElementById("auth-password").value = "";
+    authModal.classList.add("active");
+  }
+
+  function updateAuthModalTabs() {
+    if (isRegisterMode) {
+      tabRegisterBtn.classList.add("active");
+      tabLoginBtn.classList.remove("active");
+      roleSelectGroup.style.display = "flex";
+      authSubmitBtn.textContent = "Crear Cuenta";
+      document.getElementById("auth-modal-title").textContent = "Registrar Nueva Cuenta";
+    } else {
+      tabLoginBtn.classList.add("active");
+      tabRegisterBtn.classList.remove("active");
+      roleSelectGroup.style.display = "none";
+      authSubmitBtn.textContent = "Iniciar Sesión";
+      document.getElementById("auth-modal-title").textContent = "Iniciar Sesión en VerbFlow";
+    }
+    authErrorMsg.style.display = "none";
+    authSuccessMsg.style.display = "none";
+  }
+
+  tabLoginBtn?.addEventListener("click", () => {
+    isRegisterMode = false;
+    updateAuthModalTabs();
+  });
+
+  tabRegisterBtn?.addEventListener("click", () => {
+    isRegisterMode = true;
+    updateAuthModalTabs();
+  });
+
+  closeAuthModalBtn?.addEventListener("click", () => {
+    authModal.classList.remove("active");
+  });
+
+  document.getElementById("auth-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const nick = document.getElementById("auth-nick").value.trim();
+    const password = document.getElementById("auth-password").value.trim();
+    const role = document.getElementById("auth-role").value;
+
+    authErrorMsg.style.display = "none";
+    authSuccessMsg.style.display = "none";
+
+    if (isRegisterMode) {
+      const res = window.AuthManager.register(nick, password, role);
+      if (!res.success) {
+        authErrorMsg.textContent = res.message;
+        authErrorMsg.style.display = "block";
+      } else {
+        if (res.pending) {
+          authSuccessMsg.textContent = res.message;
+          authSuccessMsg.style.display = "block";
+        } else {
+          authModal.classList.remove("active");
+          renderUserHeader();
+          renderSidebar();
+        }
+      }
+    } else {
+      const res = window.AuthManager.login(nick, password);
+      if (!res.success) {
+        authErrorMsg.textContent = res.message;
+        authErrorMsg.style.display = "block";
+      } else {
+        authModal.classList.remove("active");
+        renderUserHeader();
+        renderSidebar();
+      }
+    }
+  });
+
+  // ========================================================
+  // MODAL OWNER (THEKEAS) - APROBACIÓN DE PROFESORES
+  // ========================================================
+  const ownerModal = document.getElementById("owner-modal");
+  const closeOwnerModalBtn = document.getElementById("close-owner-modal");
+  const ownerNotifBtn = document.getElementById("owner-notif-btn");
+
+  ownerNotifBtn?.addEventListener("click", () => {
+    renderOwnerApprovals();
+    ownerModal.classList.add("active");
+  });
+
+  closeOwnerModalBtn?.addEventListener("click", () => {
+    ownerModal.classList.remove("active");
+  });
+
+  function renderOwnerApprovals() {
+    const body = document.getElementById("owner-modal-body");
+    if (!body) return;
+
+    const pending = window.AuthManager.getPendingTeachers();
+
+    if (pending.length === 0) {
+      body.innerHTML = `
+        <div style="text-align:center; padding:30px 20px; color:var(--text-secondary);">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px; color:#10b981;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          <p>No hay solicitudes de profesores pendientes en este momento.</p>
+        </div>
+      `;
+      return;
+    }
+
+    body.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <p style="font-size:0.9rem; color:var(--text-secondary);">
+          Los siguientes usuarios se han registrado solicitando rango de Profesor (Teacher). Autorízalos para permitirles crear clases y evaluaciones:
+        </p>
+        ${pending.map(teacher => `
+          <div class="class-card-box" style="flex-direction:row; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:800; font-size:1.1rem; color:#f9fafb;">${teacher.nick}</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">Solicitado: ${new Date(teacher.createdAt).toLocaleDateString()}</div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="fill-submit-btn approve-teacher-btn" data-nick="${teacher.nick}" style="background:#10b981; padding:8px 16px; font-size:0.85rem;">
+                ✔ Autorizar
+              </button>
+              <button class="btn-secondary reject-teacher-btn" data-nick="${teacher.nick}" style="color:#f43f5e; padding:8px 14px; font-size:0.85rem;">
+                ✘ Rechazar
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    body.querySelectorAll(".approve-teacher-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        window.AuthManager.approveTeacher(btn.dataset.nick);
+        renderOwnerApprovals();
+        renderUserHeader();
+      });
+    });
+
+    body.querySelectorAll(".reject-teacher-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        window.AuthManager.rejectTeacher(btn.dataset.nick);
+        renderOwnerApprovals();
+        renderUserHeader();
+      });
     });
   }
 
   // ========================================================
-  // MODAL CHEAT SHEET (RESUMEN RÁPIDO)
+  // PANEL DOCENTE (TEACHER SUITE)
+  // ========================================================
+  const teacherModal = document.getElementById("teacher-modal");
+  const closeTeacherModalBtn = document.getElementById("close-teacher-modal");
+  const teacherSuiteBtn = document.getElementById("teacher-suite-btn");
+
+  const tabTeacherClasses = document.getElementById("tab-teacher-classes");
+  const tabTeacherCreate = document.getElementById("tab-teacher-create");
+  const tabTeacherResults = document.getElementById("tab-teacher-results");
+
+  teacherSuiteBtn?.addEventListener("click", () => {
+    openTeacherPanel("classes");
+    teacherModal.classList.add("active");
+  });
+
+  closeTeacherModalBtn?.addEventListener("click", () => {
+    teacherModal.classList.remove("active");
+  });
+
+  function openTeacherPanel(tab = "classes") {
+    [tabTeacherClasses, tabTeacherCreate, tabTeacherResults].forEach(t => t?.classList.remove("active"));
+    const content = document.getElementById("teacher-panel-content");
+    if (!content) return;
+
+    if (tab === "classes") {
+      tabTeacherClasses?.classList.add("active");
+      renderTeacherClasses(content);
+    } else if (tab === "create") {
+      tabTeacherCreate?.classList.add("active");
+      renderTeacherCreateClassForm(content);
+    } else if (tab === "results") {
+      tabTeacherResults?.classList.add("active");
+      renderTeacherRealtimeResults(content);
+    }
+  }
+
+  tabTeacherClasses?.addEventListener("click", () => openTeacherPanel("classes"));
+  tabTeacherCreate?.addEventListener("click", () => openTeacherPanel("create"));
+  tabTeacherResults?.addEventListener("click", () => openTeacherPanel("results"));
+
+  function renderTeacherClasses(content) {
+    const classes = window.AuthManager.getClasses();
+
+    if (classes.length === 0) {
+      content.innerHTML = `
+        <div style="text-align:center; padding:30px 20px;">
+          <p style="color:var(--text-secondary); margin-bottom:14px;">Aún no has creado ninguna clase.</p>
+          <button class="fill-submit-btn" onclick="document.getElementById('tab-teacher-create').click();">
+            + Crear Mi Primera Clase
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    content.innerHTML = `
+      <div class="classes-grid">
+        ${classes.map(c => `
+          <div class="class-card-box">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="class-code-badge">${c.code}</span>
+              <span style="font-size:0.75rem; color:var(--text-muted);">${c.questionCount} preguntas</span>
+            </div>
+            <h4 style="font-size:1.15rem; font-weight:800; color:#f9fafb;">${c.name}</h4>
+            <div style="font-size:0.85rem; color:var(--text-secondary);">
+              <strong>Profesor:</strong> ${c.teacherNick}
+            </div>
+            <div style="font-size:0.82rem; color:var(--text-muted);">
+              <strong>Temas:</strong> ${c.selectedTopics.map(id => window.TENSES_DATA.find(t=>t.id===id)?.name || id).join(', ')}
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button class="btn-secondary copy-class-link-btn" data-code="${c.code}" style="flex:1; font-size:0.8rem; padding:8px;">
+                📋 Copiar Código (${c.code})
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    content.querySelectorAll(".copy-class-link-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const code = btn.dataset.code;
+        navigator.clipboard.writeText(code).then(() => {
+          const original = btn.textContent;
+          btn.textContent = "✔ ¡Código Copiado!";
+          setTimeout(() => btn.textContent = original, 2000);
+        });
+      });
+    });
+  }
+
+  function renderTeacherCreateClassForm(content) {
+    content.innerHTML = `
+      <form id="create-class-form">
+        <div class="form-group">
+          <label class="form-label" for="new-class-name">Nombre de la Clase / Grupo:</label>
+          <input type="text" id="new-class-name" class="form-input" placeholder="Ej: Inglés 3ro A - Evaluación Parcial" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Temas a incluir en la prueba:</label>
+          <div class="topics-selector-grid" style="grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));">
+            ${window.TENSES_DATA.map(tense => `
+              <label class="topic-checkbox-label">
+                <input type="checkbox" name="teacher-topic" value="${tense.id}" checked />
+                <span style="font-size:0.88rem; font-weight:600;">${tense.name}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Cantidad de preguntas para la prueba:</label>
+          <select id="new-class-qcount" class="form-select">
+            <option value="5">5 Preguntas</option>
+            <option value="10" selected>10 Preguntas</option>
+            <option value="15">15 Preguntas</option>
+            <option value="20">20 Preguntas</option>
+          </select>
+        </div>
+
+        <div id="create-class-error" style="color:#f43f5e; font-size:0.85rem; margin-bottom:12px; display:none;"></div>
+
+        <div style="display:flex; justify-content:flex-end;">
+          <button type="submit" class="fill-submit-btn">
+            Guardar Clase y Generar Código 🚀
+          </button>
+        </div>
+      </form>
+    `;
+
+    document.getElementById("create-class-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("new-class-name").value.trim();
+      const qcount = document.getElementById("new-class-qcount").value;
+      const checkedBoxes = Array.from(content.querySelectorAll("input[name='teacher-topic']:checked"));
+      const topics = checkedBoxes.map(cb => cb.value);
+
+      const errEl = document.getElementById("create-class-error");
+      if (topics.length === 0) {
+        errEl.textContent = "Debes seleccionar al menos un tema.";
+        errEl.style.display = "block";
+        return;
+      }
+
+      const res = window.AuthManager.createClass(name, topics, qcount);
+      if (res.success) {
+        openTeacherPanel("classes");
+      } else {
+        errEl.textContent = res.message;
+        errEl.style.display = "block";
+      }
+    });
+  }
+
+  function renderTeacherRealtimeResults(content) {
+    const submissions = window.AuthManager.getSubmissions();
+
+    if (submissions.length === 0) {
+      content.innerHTML = `
+        <div style="text-align:center; padding:30px 20px; color:var(--text-secondary);">
+          <p>Aún no hay alumnos que hayan completado evaluaciones.</p>
+        </div>
+      `;
+      return;
+    }
+
+    content.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span style="font-size:0.9rem; color:var(--text-secondary);">
+          Evaluaciones recibidas en tiempo real (${submissions.length}):
+        </span>
+        <button id="refresh-subs-btn" style="font-size:0.8rem; color:#60a5fa;">🔄 Actualizar</button>
+      </div>
+
+      <div class="submissions-table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Alumno</th>
+              <th>Clase</th>
+              <th>Calificación</th>
+              <th>Aciertos</th>
+              <th>Fecha</th>
+              <th>Boleta</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${submissions.map(s => {
+              const scoreClass = s.score >= 80 ? "high" : s.score >= 60 ? "mid" : "low";
+              return `
+                <tr>
+                  <td><strong>${s.studentNick}</strong></td>
+                  <td><code style="color:#60a5fa;">${s.classCode}</code></td>
+                  <td><span class="score-badge-pill ${scoreClass}">${s.score} / 100</span></td>
+                  <td>${s.correctCount} / ${s.totalQuestions}</td>
+                  <td style="color:var(--text-muted); font-size:0.8rem;">${s.date}</td>
+                  <td>
+                    <button class="download-sub-cert-btn" data-sub='${JSON.stringify(s)}' style="font-size:0.8rem; color:#10b981; font-weight:700;">
+                      📥 Descargar
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById("refresh-subs-btn")?.addEventListener("click", () => {
+      renderTeacherRealtimeResults(content);
+    });
+
+    content.querySelectorAll(".download-sub-cert-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const s = JSON.parse(btn.dataset.sub);
+        window.CertificateGenerator.downloadCertificate({
+          studentNick: s.studentNick,
+          score: s.score,
+          correctCount: s.correctCount,
+          totalQuestions: s.totalQuestions,
+          topicsName: "Evaluación Escolar",
+          classCode: s.classCode
+        });
+      });
+    });
+  }
+
+  // ========================================================
+  // MODAL DE UNIRSE A CLASE
+  // ========================================================
+  const joinModal = document.getElementById("join-class-modal");
+  const openJoinModalBtn = document.getElementById("open-join-class");
+  const closeJoinModalBtn = document.getElementById("close-join-modal");
+  const submitJoinBtn = document.getElementById("submit-join-btn");
+  const joinCodeInput = document.getElementById("join-class-code");
+  const joinErrorMsg = document.getElementById("join-error-msg");
+
+  openJoinModalBtn?.addEventListener("click", () => {
+    joinErrorMsg.style.display = "none";
+    joinCodeInput.value = "";
+    joinModal.classList.add("active");
+  });
+
+  closeJoinModalBtn?.addEventListener("click", () => {
+    joinModal.classList.remove("active");
+  });
+
+  submitJoinBtn?.addEventListener("click", () => {
+    const code = joinCodeInput.value.trim().toUpperCase();
+    if (!code) {
+      joinErrorMsg.textContent = "Por favor ingresa un código de clase.";
+      joinErrorMsg.style.display = "block";
+      return;
+    }
+
+    const classroom = window.AuthManager.getClassByCode(code);
+    if (!classroom) {
+      joinErrorMsg.textContent = "No se encontró ninguna clase con el código '" + code + "'. Verifica con tu profesor.";
+      joinErrorMsg.style.display = "block";
+      return;
+    }
+
+    joinModal.classList.remove("active");
+    startCustomExam(classroom.selectedTopics, classroom.questionCount, classroom.code);
+  });
+
+  // ========================================================
+  // CONFIGURADOR DE EXAMEN PERSONALIZADO (A MEDIDA)
+  // ========================================================
+  const customExamModal = document.getElementById("custom-exam-modal");
+  const openCustomExamBtn = document.getElementById("open-custom-exam");
+  const closeCustomExamBtn = document.getElementById("close-custom-exam-modal");
+  const customTopicsGrid = document.getElementById("custom-exam-topics-grid");
+  const launchCustomExamBtn = document.getElementById("launch-custom-exam-btn");
+
+  openCustomExamBtn?.addEventListener("click", () => {
+    openCustomExamModal();
+  });
+
+  closeCustomExamBtn?.addEventListener("click", () => {
+    customExamModal.classList.remove("active");
+  });
+
+  function openCustomExamModal() {
+    renderCustomExamTopics();
+    customExamModal.classList.add("active");
+  }
+
+  function renderCustomExamTopics() {
+    if (!customTopicsGrid) return;
+    customTopicsGrid.innerHTML = window.TENSES_DATA.map((t, idx) => `
+      <label class="topic-checkbox-label ${idx < 3 ? 'checked' : ''}">
+        <input type="checkbox" name="custom-topic" value="${t.id}" ${idx < 3 ? 'checked' : ''} />
+        <div>
+          <div style="font-weight:700; font-size:0.92rem;">${t.name}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">${t.nameEs}</div>
+        </div>
+      </label>
+    `).join('');
+
+    customTopicsGrid.querySelectorAll("input[name='custom-topic']").forEach(input => {
+      input.addEventListener("change", (e) => {
+        const label = e.target.closest(".topic-checkbox-label");
+        if (e.target.checked) {
+          label.classList.add("checked");
+        } else {
+          label.classList.remove("checked");
+        }
+      });
+    });
+  }
+
+  document.getElementById("select-all-topics-btn")?.addEventListener("click", () => {
+    customTopicsGrid.querySelectorAll("input[name='custom-topic']").forEach(i => {
+      i.checked = true;
+      i.closest(".topic-checkbox-label")?.classList.add("checked");
+    });
+  });
+
+  document.getElementById("deselect-all-topics-btn")?.addEventListener("click", () => {
+    customTopicsGrid.querySelectorAll("input[name='custom-topic']").forEach(i => {
+      i.checked = false;
+      i.closest(".topic-checkbox-label")?.classList.remove("checked");
+    });
+  });
+
+  // Selector de cantidad de preguntas
+  document.querySelectorAll("#q-count-pills-container .q-count-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#q-count-pills-container .q-count-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const countVal = btn.dataset.count;
+      state.selectedQuestionCount = countVal === "all" ? 999 : parseInt(countVal, 10);
+    });
+  });
+
+  launchCustomExamBtn?.addEventListener("click", () => {
+    const checked = Array.from(customTopicsGrid.querySelectorAll("input[name='custom-topic']:checked"));
+    const selectedTopics = checked.map(c => c.value);
+
+    if (selectedTopics.length === 0) {
+      alert("Por favor selecciona al menos un tema para la evaluación.");
+      return;
+    }
+
+    customExamModal.classList.remove("active");
+    startCustomExam(selectedTopics, state.selectedQuestionCount);
+  });
+
+  // ========================================================
+  // CHULETA / CHEAT SHEET MODAL
   // ========================================================
   const cheatBtn = document.getElementById("open-cheat-sheet");
   const modalOverlay = document.getElementById("cheat-sheet-modal");
@@ -868,8 +1527,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // TOGGLE DE SIDEBAR EN MÓVILES
+  // TEMA OSCURO / CLARO
   // ========================================================
+  const themeBtn = document.getElementById("theme-toggle-btn");
+  if (themeBtn) {
+    const savedTheme = localStorage.getItem("verbflow_theme") || "dark";
+    if (savedTheme === "light") document.body.classList.add("light-theme");
+
+    themeBtn.addEventListener("click", () => {
+      document.body.classList.toggle("light-theme");
+      const isLight = document.body.classList.contains("light-theme");
+      localStorage.setItem("verbflow_theme", isLight ? "light" : "dark");
+    });
+  }
+
+  // Toggle de sidebar móvil
   const mobileMenuBtn = document.getElementById("mobile-menu-btn");
   const sidebar = document.querySelector(".sidebar");
   if (mobileMenuBtn && sidebar) {
@@ -878,10 +1550,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Utilidad para formatear markdown simple (**negrita**)
   function formatMarkdownBold(str) {
     if (!str) return "";
     return str.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  }
+
+  // Comprobar si viene un código de clase en la URL (?class=VF-XXXX)
+  const urlParams = new URLSearchParams(window.location.search);
+  const classFromUrl = urlParams.get("class");
+  if (classFromUrl) {
+    const foundClass = window.AuthManager.getClassByCode(classFromUrl);
+    if (foundClass) {
+      setTimeout(() => {
+        startCustomExam(foundClass.selectedTopics, foundClass.questionCount, foundClass.code);
+      }, 300);
+    }
   }
 
   // Inicialización

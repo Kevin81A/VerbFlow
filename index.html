@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VerbFlow — Domina los Tiempos Verbales en Inglés</title>
-  <meta name="description" content="Aprende y practica Pasado Continuo, Presente Continuo, Futuro Simple y todos los tiempos verbales en inglés con teoría clara, pronunciación de audio y ejercicios interactivos." />
+  <meta name="description" content="Aprende y practica Pasado Continuo, Presente Continuo, Futuro Simple y todos los tiempos verbales en inglés con teoría clara, pronunciación de audio, evaluaciones a medida y certificación." />
 
   <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -29,8 +29,28 @@
         </div>
         <div>
           <div class="brand-title">VerbFlow</div>
-          <div class="brand-sub">Aprende & Practica Inglés</div>
+          <div class="brand-sub">Academy & Evaluaciones</div>
         </div>
+      </div>
+
+      <!-- Accesos Rápidos Principales -->
+      <div style="padding: 14px 14px 4px; display: flex; flex-direction: column; gap: 8px;">
+        <button class="cheat-sheet-btn" id="open-custom-exam" style="background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+          🎯 Examen Personalizado
+        </button>
+
+        <button class="cheat-sheet-btn" id="open-join-class" style="background: rgba(6, 182, 212, 0.1); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.25);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          🏫 Unirse a una Clase
+        </button>
       </div>
 
       <div class="sidebar-content" id="sidebar-tenses-list">
@@ -43,7 +63,7 @@
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
           </svg>
-          Chuleta / Resumen
+          Chuleta de Fórmulas
         </button>
       </div>
     </aside>
@@ -89,8 +109,32 @@
           </button>
         </div>
 
-        <!-- Estadísticas & Ajustes -->
+        <!-- Estadísticas, Panel Docente & Sesión de Usuario -->
         <div class="header-stats">
+          <!-- Botón de Notificaciones para el Owner (TheKeas) -->
+          <button class="notif-bell-btn" id="owner-notif-btn" style="display:none;" title="Solicitudes de Profesores pendientes">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="notif-badge-bubble" id="owner-notif-count">0</span>
+          </button>
+
+          <!-- Botón de Panel Teacher -->
+          <button class="login-trigger-btn" id="teacher-suite-btn" style="display:none; background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.4);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            Panel Docente
+          </button>
+
+          <!-- Caja de sesión de usuario -->
+          <div class="user-auth-box" id="user-auth-container">
+            <!-- Inyectado dinámicamente: botón 'Iniciar Sesión' o Badge con Rol -->
+          </div>
+
           <div class="stat-chip" title="Experiencia ganada">
             <span style="color:#fbbf24;">⚡</span>
             <span id="user-xp">0 XP</span>
@@ -118,13 +162,181 @@
 
       <!-- Área de Contenido Principal -->
       <div class="content-area" id="main-view-container">
-        <!-- Inyectado dinámicamente según Estudio o Práctica -->
+        <!-- Inyectado dinámicamente según Estudio, Práctica o Examen Personalizado -->
       </div>
     </main>
   </div>
 
   <!-- ==========================================
-       MODAL: Chuleta de Tiempos Verbales (Cheat Sheet)
+       MODAL 1: AUTENTICACIÓN (LOGIN / REGISTRO POR NICK)
+       ========================================== -->
+  <div class="modal-overlay" id="auth-modal">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="auth-modal-title" style="font-family:var(--font-display); font-size:1.3rem; font-weight:800;">
+          Acceso a VerbFlow
+        </h3>
+        <button class="modal-close-btn" id="close-auth-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="auth-tabs-header">
+          <button class="auth-tab-btn active" id="tab-login-btn">Iniciar Sesión</button>
+          <button class="auth-tab-btn" id="tab-register-btn">Crear Cuenta</button>
+        </div>
+
+        <form id="auth-form">
+          <div class="form-group">
+            <label class="form-label" for="auth-nick">Nick o Nombre de Usuario:</label>
+            <input type="text" id="auth-nick" class="form-input" placeholder="Ej: Kevin, Alex, TheKeas..." required autocomplete="username" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="auth-password">Contraseña:</label>
+            <input type="password" id="auth-password" class="form-input" placeholder="Tu clave de acceso" required autocomplete="current-password" />
+          </div>
+
+          <!-- Campo solo visible en registro -->
+          <div class="form-group" id="role-select-group" style="display:none;">
+            <label class="form-label" for="auth-role">Tipo de Cuenta / Rango:</label>
+            <select id="auth-role" class="form-select">
+              <option value="student">🎓 Alumno (Presentar pruebas)</option>
+              <option value="teacher">👨‍🏫 Profesor / Teacher (Crear clases y exámenes)</option>
+            </select>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">
+              *Las cuentas de Teacher requieren autorización previa del Owner (TheKeas) antes de activarse.
+            </p>
+          </div>
+
+          <div id="auth-error-msg" style="color:#f43f5e; font-size:0.85rem; margin-bottom:12px; display:none;"></div>
+          <div id="auth-success-msg" style="color:#10b981; font-size:0.85rem; margin-bottom:12px; display:none;"></div>
+
+          <button type="submit" class="fill-submit-btn" id="auth-submit-btn" style="width:100%; justify-content:center;">
+            Iniciar Sesión
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 2: PANEL DE APROBACIÓN OWNER (THEKEAS)
+       ========================================== -->
+  <div class="modal-overlay" id="owner-modal">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 style="font-family:var(--font-display); font-size:1.3rem; font-weight:800; color:#fbbf24; display:flex; align-items:center; gap:8px;">
+          👑 Solicitudes de Profesores (Owner: TheKeas)
+        </h3>
+        <button class="modal-close-btn" id="close-owner-modal">&times;</button>
+      </div>
+      <div class="modal-body" id="owner-modal-body">
+        <!-- Renderizado dinámico de profesores pendientes -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 3: PANEL DOCENTE (TEACHER SUITE)
+       ========================================== -->
+  <div class="modal-overlay" id="teacher-modal">
+    <div class="modal-dialog" style="max-width: 780px;">
+      <div class="modal-header">
+        <h3 style="font-family:var(--font-display); font-size:1.3rem; font-weight:800; color:#c084fc; display:flex; align-items:center; gap:8px;">
+          👨‍🏫 Suite del Profesor — Clases & Calificaciones
+        </h3>
+        <button class="modal-close-btn" id="close-teacher-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="auth-tabs-header">
+          <button class="auth-tab-btn active" id="tab-teacher-classes">Mis Clases Creadas</button>
+          <button class="auth-tab-btn" id="tab-teacher-create">+ Crear Nueva Clase</button>
+          <button class="auth-tab-btn" id="tab-teacher-results">Resultados en Tiempo Real</button>
+        </div>
+
+        <div id="teacher-panel-content">
+          <!-- Renderizado dinámico -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 4: UNIRSE A UNA CLASE
+       ========================================== -->
+  <div class="modal-overlay" id="join-class-modal">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 style="font-family:var(--font-display); font-size:1.25rem; font-weight:800; color:#22d3ee; display:flex; align-items:center; gap:8px;">
+          🏫 Unirse a la Clase de tu Profesor
+        </h3>
+        <button class="modal-close-btn" id="close-join-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:14px;">
+          Ingresa el código proporcionado por tu profesor (ej: <code>VF-4821</code>) para cargar la evaluación designada.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="join-class-code">Código de Clase:</label>
+          <input type="text" id="join-class-code" class="form-input" placeholder="VF-XXXX" style="font-family:monospace; font-size:1.1rem; text-transform:uppercase; font-weight:700;" />
+        </div>
+        <div id="join-error-msg" style="color:#f43f5e; font-size:0.85rem; margin-bottom:10px; display:none;"></div>
+        <button class="fill-submit-btn" id="submit-join-btn" style="width:100%; justify-content:center;">
+          Ingresar y Presentar Prueba
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 5: CONFIGURADOR DE EXAMEN PERSONALIZADO
+       ========================================== -->
+  <div class="modal-overlay" id="custom-exam-modal">
+    <div class="modal-dialog" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 style="font-family:var(--font-display); font-size:1.3rem; font-weight:800; color:#fbbf24; display:flex; align-items:center; gap:8px;">
+          🎯 Configurar Evaluación Personalizada
+        </h3>
+        <button class="modal-close-btn" id="close-custom-exam-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:10px;">
+          Escoge si deseas presentar la prueba de <strong>un solo tema</strong> o <strong>combinar varios</strong>, y selecciona cuántas preguntas responder:
+        </p>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
+          <span class="form-label">Selecciona los temas a evaluar:</span>
+          <div>
+            <button id="select-all-topics-btn" style="font-size:0.8rem; color:#60a5fa; margin-right:10px;">Seleccionar Todos</button>
+            <button id="deselect-all-topics-btn" style="font-size:0.8rem; color:var(--text-muted);">Deseleccionar</button>
+          </div>
+        </div>
+
+        <div class="topics-selector-grid" id="custom-exam-topics-grid">
+          <!-- Checkboxes de temas inyectados dinámicamente -->
+        </div>
+
+        <div style="margin-top:16px;">
+          <span class="form-label">Cantidad de preguntas a presentar:</span>
+          <div class="question-count-pills" id="q-count-pills-container">
+            <button class="q-count-btn active" data-count="5">5 Preguntas</button>
+            <button class="q-count-btn" data-count="10">10 Preguntas</button>
+            <button class="q-count-btn" data-count="15">15 Preguntas</button>
+            <button class="q-count-btn" data-count="20">20 Preguntas</button>
+            <button class="q-count-btn" data-count="all">Todas las disponibles</button>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+          <button class="custom-exam-launch-btn" id="launch-custom-exam-btn" style="font-size:1rem; padding:12px 28px;">
+            ¡Comenzar Evaluación! 🚀
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 6: CHULETA DE FÓRMULAS
        ========================================== -->
   <div class="modal-overlay" id="cheat-sheet-modal">
     <div class="modal-dialog">
@@ -140,7 +352,9 @@
     </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- Scripts en orden de dependencia -->
+  <script src="auth-manager.js"></script>
+  <script src="certificate-generator.js"></script>
   <script src="tenses-data.js"></script>
   <script src="app.js"></script>
 </body>
