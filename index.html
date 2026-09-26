@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VerbFlow — Domina los Tiempos Verbales en Inglés</title>
+  <meta name="description" content="Aprende y practica Pasado Continuo, Presente Continuo, Futuro Simple y todos los tiempos verbales en inglés con teoría clara, pronunciación de audio y ejercicios interactivos." />
+
+  <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Estilos principales -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- ==========================================
+         SIDEBAR: Navegación de Tiempos Verbales
+         ========================================== -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">VerbFlow</div>
+          <div class="brand-sub">Aprende & Practica Inglés</div>
+        </div>
+      </div>
+
+      <div class="sidebar-content" id="sidebar-tenses-list">
+        <!-- Renderizado dinámico desde app.js -->
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="cheat-sheet-btn" id="open-cheat-sheet">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          Chuleta / Resumen
+        </button>
+      </div>
+    </aside>
+
+    <!-- ==========================================
+         MAIN WRAPPER: Encabezado y Contenido
+         ========================================== -->
+    <main class="main-wrapper">
+      <!-- Header Superior -->
+      <header class="top-header">
+        <div class="header-left">
+          <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Abrir menú de navegación">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          
+          <div class="header-title-box">
+            <h1 id="header-tense-title">
+              Cargando...
+            </h1>
+          </div>
+          <span class="header-badge" id="header-tense-badge">Básico</span>
+        </div>
+
+        <!-- Selector de Pestañas: Estudio vs Práctica -->
+        <div class="mode-tabs">
+          <button class="mode-tab-btn active" data-mode="study">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+            Estudio
+          </button>
+          <button class="mode-tab-btn" data-mode="practice">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon points="10 8 16 12 10 16 10 8"></polygon>
+            </svg>
+            Práctica
+          </button>
+        </div>
+
+        <!-- Estadísticas & Ajustes -->
+        <div class="header-stats">
+          <div class="stat-chip" title="Experiencia ganada">
+            <span style="color:#fbbf24;">⚡</span>
+            <span id="user-xp">0 XP</span>
+          </div>
+
+          <div class="stat-chip" title="Racha de respuestas correctas seguidas">
+            <span id="user-streak">🔥 0</span>
+          </div>
+
+          <button class="theme-toggle-btn" id="theme-toggle-btn" title="Cambiar tema claro / oscuro">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Área de Contenido Principal -->
+      <div class="content-area" id="main-view-container">
+        <!-- Inyectado dinámicamente según Estudio o Práctica -->
+      </div>
+    </main>
+  </div>
+
+  <!-- ==========================================
+       MODAL: Chuleta de Tiempos Verbales (Cheat Sheet)
+       ========================================== -->
+  <div class="modal-overlay" id="cheat-sheet-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 style="font-family:var(--font-display); font-size:1.3rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+          📖 Resumen Rápido: Fórmulas de Tiempos Verbales
+        </h3>
+        <button class="modal-close-btn" id="close-cheat-sheet">&times;</button>
+      </div>
+      <div class="modal-body" id="cheat-sheet-body">
+        <!-- Renderizado dinámico -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="tenses-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
