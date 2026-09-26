@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VerbFlow — Panel del Propietario (TheKeas)</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Sidebar del Owner (TheKeas) -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+          👑
+        </div>
+        <div>
+          <div class="brand-title" style="background: linear-gradient(90deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Owner Suite
+          </div>
+          <div class="brand-sub">TheKeas Admin Center</div>
+        </div>
+      </div>
+
+      <div class="sidebar-content" style="padding: 16px 12px; display:flex; flex-direction:column; gap:6px;">
+        <button class="tense-item-btn active" id="owner-nav-approvals">
+          <div class="tense-btn-left">
+            <span>🔔</span>
+            <div class="tense-btn-info">
+              <span class="tense-btn-name">Solicitudes Profesores</span>
+              <span class="tense-btn-es">Autorizar accesos</span>
+            </div>
+          </div>
+          <span class="tense-progress-badge" id="owner-pending-badge" style="background:#f43f5e; color:white; display:none;">0</span>
+        </button>
+
+        <button class="tense-item-btn" id="owner-nav-create-teacher">
+          <div class="tense-btn-left">
+            <span>➕</span>
+            <div class="tense-btn-info">
+              <span class="tense-btn-name">Crear Profesor</span>
+              <span class="tense-btn-es">Registro directo</span>
+            </div>
+          </div>
+        </button>
+
+        <button class="tense-item-btn" id="owner-nav-teachers-list">
+          <div class="tense-btn-left">
+            <span>👥</span>
+            <div class="tense-btn-info">
+              <span class="tense-btn-name">Todos los Profesores</span>
+              <span class="tense-btn-es">Gestión y control</span>
+            </div>
+          </div>
+        </button>
+
+        <button class="tense-item-btn" id="owner-nav-all-classes">
+          <div class="tense-btn-left">
+            <span>🏫</span>
+            <div class="tense-btn-info">
+              <span class="tense-btn-name">Clases y Exámenes</span>
+              <span class="tense-btn-es">Supervisión global</span>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div class="sidebar-footer" style="flex-direction:column; gap:10px; align-items:stretch;">
+        <a href="index.html" class="cheat-sheet-btn" style="text-decoration:none; justify-content:center;">
+          🌐 Ir a Portal de Estudio
+        </a>
+        <a href="teacher.html" class="cheat-sheet-btn" style="text-decoration:none; justify-content:center; color:#c084fc;">
+          👨‍🏫 Ir a Suite de Profesor
+        </a>
+        <button class="btn-secondary" id="owner-logout-btn" style="color:#f43f5e; border-color:#f43f5e55;">
+          🚪 Cerrar Sesión
+        </button>
+      </div>
+    </aside>
+
+    <!-- Área Principal del Owner -->
+    <main class="main-wrapper">
+      <header class="top-header">
+        <div class="header-left">
+          <div class="header-title-box">
+            <h1 id="owner-header-title">Panel del Propietario (TheKeas)</h1>
+          </div>
+          <span class="header-badge role-owner">
+            👑 Super Admin
+          </span>
+        </div>
+
+        <div class="header-stats">
+          <div class="user-profile-badge">
+            <strong style="color:#fbbf24;">TheKeas</strong>
+            <span class="user-role-tag role-owner">Propietario</span>
+          </div>
+          <button class="theme-toggle-btn" id="theme-toggle-btn" title="Cambiar tema">
+            🌙
+          </button>
+        </div>
+      </header>
+
+      <div class="content-area" id="owner-main-container">
+        <!-- Inyectado dinámicamente -->
+      </div>
+    </main>
+  </div>
+
+  <script src="auth-manager.js"></script>
+  <script src="certificate-generator.js"></script>
+  <script src="questions-bank.js"></script>
+  <script src="tenses-data.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      let user = window.AuthManager.getCurrentUser();
+
+      // Si no ha iniciado sesión como TheKeas, solicitar credenciales
+      if (!user || user.role !== "owner") {
+        const pass = prompt("Acceso restringido al Propietario (TheKeas).\nPor favor ingresa la contraseña de TheKeas:");
+        if (pass) {
+          const res = window.AuthManager.login("TheKeas", pass);
+          if (res.success) {
+            user = res.user;
+          } else {
+            alert(res.message || "Acceso denegado.");
+            window.location.href = "index.html";
+            return;
+          }
+        } else {
+          window.location.href = "index.html";
+          return;
+        }
+      }
+
+      const container = document.getElementById("owner-main-container");
+      const navApprovals = document.getElementById("owner-nav-approvals");
+      const navCreateTeacher = document.getElementById("owner-nav-create-teacher");
+      const navTeachersList = document.getElementById("owner-nav-teachers-list");
+      const navAllClasses = document.getElementById("owner-nav-all-classes");
+      const pendingBadge = document.getElementById("owner-pending-badge");
+
+      function updateBadge() {
+        const pending = window.AuthManager.getPendingTeachers();
+        if (pending.length > 0) {
+          pendingBadge.textContent = pending.length;
+          pendingBadge.style.display = "inline-block";
+        } else {
+          pendingBadge.style.display = "none";
+        }
+      }
+
+      function setTab(activeBtn) {
+        [navApprovals, navCreateTeacher, navTeachersList, navAllClasses].forEach(b => b.classList.remove("active"));
+        activeBtn.classList.add("active");
+        updateBadge();
+      }
+
+      navApprovals.addEventListener("click", () => {
+        setTab(navApprovals);
+        renderApprovals();
+      });
+
+      navCreateTeacher.addEventListener("click", () => {
+        setTab(navCreateTeacher);
+        renderCreateTeacherForm();
+      });
+
+      navTeachersList.addEventListener("click", () => {
+        setTab(navTeachersList);
+        renderTeachersList();
+      });
+
+      navAllClasses.addEventListener("click", () => {
+        setTab(navAllClasses);
+        renderAllClassesAndSubmissions();
+      });
+
+      document.getElementById("owner-logout-btn").addEventListener("click", () => {
+        window.AuthManager.logout();
+        window.location.href = "index.html";
+      });
+
+      const themeBtn = document.getElementById("theme-toggle-btn");
+      if (themeBtn) {
+        if (localStorage.getItem("verbflow_theme") === "light") document.body.classList.add("light-theme");
+        themeBtn.addEventListener("click", () => {
+          document.body.classList.toggle("light-theme");
+          localStorage.setItem("verbflow_theme", document.body.classList.contains("light-theme") ? "light" : "dark");
+        });
+      }
+
+      // 1. Solicitudes de Profesores Pendientes
+      function renderApprovals() {
+        document.getElementById("owner-header-title").textContent = "Solicitudes de Profesores Pendientes de Aprobación";
+        const pending = window.AuthManager.getPendingTeachers();
+        updateBadge();
+
+        if (pending.length === 0) {
+          container.innerHTML = `
+            <div class="exercise-card fade-in" style="text-align:center; padding:50px 20px;">
+              <div style="font-size:3rem; margin-bottom:10px;">✨</div>
+              <h3 style="font-size:1.35rem; font-weight:800; margin-bottom:6px;">No hay solicitudes pendientes</h3>
+              <p style="color:var(--text-secondary);">Todos los profesores registrados han sido procesados. Cuando un docente se registre, te aparecerá aquí para autorizarlo en 1 clic.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="fade-in">
+            <p style="color:var(--text-secondary); margin-bottom:16px;">
+              Tienes <strong>${pending.length}</strong> solicitud(es) esperando tu autorización. Apenas los apruebes, ingresarán automáticamente en sus pantallas:
+            </p>
+
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              ${pending.map(t => `
+                <div class="class-card-box" style="flex-direction:row; justify-content:space-between; align-items:center;">
+                  <div>
+                    <div style="font-weight:800; font-size:1.2rem; color:#f9fafb;">${t.fullName || t.nick}</div>
+                    <div style="font-size:0.88rem; color:#38bdf8;">Nickname: <strong>${t.nick}</strong> | CC: ${t.idCard || "N/A"}</div>
+                    <div style="font-size:0.82rem; color:var(--text-muted);">Institución: ${t.institution || "Promoción Social"}</div>
+                  </div>
+                  <div style="display:flex; gap:10px;">
+                    <button class="fill-submit-btn btn-approve" data-nick="${t.nick}" style="background:#10b981; padding:10px 20px;">
+                      ✔ Autorizar Profesor
+                    </button>
+                    <button class="btn-secondary btn-reject" data-nick="${t.nick}" style="color:#f43f5e; padding:10px 16px;">
+                      ✘ Rechazar
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+
+        container.querySelectorAll(".btn-approve").forEach(b => {
+          b.addEventListener("click", () => {
+            window.AuthManager.approveTeacher(b.dataset.nick);
+            renderApprovals();
+          });
+        });
+
+        container.querySelectorAll(".btn-reject").forEach(b => {
+          b.addEventListener("click", () => {
+            window.AuthManager.rejectTeacher(b.dataset.nick);
+            renderApprovals();
+          });
+        });
+      }
+
+      // 2. Crear Profesor Directamente (Sin espera)
+      function renderCreateTeacherForm() {
+        document.getElementById("owner-header-title").textContent = "Crear Cuenta de Profesor Directamente";
+        container.innerHTML = `
+          <div class="exercise-card fade-in" style="max-width:650px; margin:0 auto;">
+            <h2 style="font-family:var(--font-display); font-size:1.45rem; font-weight:800; margin-bottom:6px; color:#fbbf24;">
+              Crear Nuevo Profesor Autorizado
+            </h2>
+            <p style="color:var(--text-secondary); margin-bottom:20px; font-size:0.92rem;">
+              Como Owner, puedes crear profesores en cualquier momento. La cuenta quedará <strong>autorizada inmediatamente</strong> sin necesidad de esperar aprobación.
+            </p>
+
+            <form id="owner-create-teacher-form">
+              <div class="form-group">
+                <label class="form-label" for="ct-fullname">Nombre Completo del Profesor:</label>
+                <input type="text" id="ct-fullname" class="form-input" placeholder="Ej: Lic. Carlos Andrés Rodríguez" required />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="ct-nick">Nickname (Nombre de usuario para acceder):</label>
+                <input type="text" id="ct-nick" class="form-input" placeholder="Nickname" required />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="ct-password">Contraseña asignada:</label>
+                <input type="password" id="ct-password" class="form-input" placeholder="Contraseña de acceso" required />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="ct-institution">Institución Educativa:</label>
+                <input type="text" id="ct-institution" class="form-input" value="Promoción Social" required />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="ct-idcard">Cédula de Ciudadanía / Documento:</label>
+                <input type="text" id="ct-idcard" class="form-input" placeholder="Número de cédula" />
+              </div>
+
+              <div id="ct-err-msg" style="color:#f43f5e; font-size:0.85rem; margin-bottom:12px; display:none;"></div>
+
+              <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+                <button type="submit" class="fill-submit-btn" style="padding:14px 28px; background:linear-gradient(135deg, #f59e0b, #d97706);">
+                  👑 Crear y Activar Profesor
+                </button>
+              </div>
+            </form>
+          </div>
+        `;
+
+        document.getElementById("owner-create-teacher-form")?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const fullName = document.getElementById("ct-fullname").value.trim();
+          const nick = document.getElementById("ct-nick").value.trim();
+          const password = document.getElementById("ct-password").value.trim();
+          const institution = document.getElementById("ct-institution").value.trim();
+          const idCard = document.getElementById("ct-idcard").value.trim();
+
+          const res = window.AuthManager.createTeacherDirectly({
+            fullName,
+            nick,
+            password,
+            institution,
+            idCard
+          });
+
+          const errEl = document.getElementById("ct-err-msg");
+          if (res.success) {
+            alert(`¡Profesor creado con éxito!\n\nNickname: ${nick}\nContraseña: ${password}\nYa puede iniciar sesión de inmediato.`);
+            navTeachersList.click();
+          } else {
+            errEl.textContent = res.message;
+            errEl.style.display = "block";
+          }
+        });
+      }
+
+      // 3. Lista de Todos los Profesores
+      function renderTeachersList() {
+        document.getElementById("owner-header-title").textContent = "Directorio de Todos los Profesores";
+        const teachers = window.AuthManager.getAllTeachers();
+
+        if (teachers.length === 0) {
+          container.innerHTML = `
+            <div class="exercise-card fade-in" style="text-align:center; padding:50px 20px;">
+              <p style="color:var(--text-secondary);">No hay profesores registrados aún.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="fade-in">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+              <p style="color:var(--text-secondary);">Total de docentes registrados: <strong>${teachers.length}</strong></p>
+              <button class="fill-submit-btn" id="btn-quick-new-prof" style="padding:8px 16px; font-size:0.85rem;">+ Crear Profesor</button>
+            </div>
+
+            <div class="submissions-table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Nombre Completo</th>
+                    <th>Nickname</th>
+                    <th>Cédula</th>
+                    <th>Institución</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${teachers.map(t => `
+                    <tr>
+                      <td><strong>${t.fullName || t.nick}</strong></td>
+                      <td><code style="color:#38bdf8;">${t.nick}</code></td>
+                      <td>${t.idCard || "N/A"}</td>
+                      <td>${t.institution || "Promoción Social"}</td>
+                      <td>
+                        <span class="score-badge-pill ${t.status === 'approved' ? 'high' : 'low'}">
+                          ${t.status === 'approved' ? '✔ Autorizado' : '⏳ Pendiente'}
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn-secondary delete-prof-btn" data-nick="${t.nick}" style="color:#f43f5e; padding:6px 10px; font-size:0.8rem;" title="Eliminar cuenta">
+                          🗑️ Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("btn-quick-new-prof")?.addEventListener("click", () => navCreateTeacher.click());
+
+        container.querySelectorAll(".delete-prof-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            if (confirm(`¿Eliminar la cuenta del profesor '${btn.dataset.nick}'?`)) {
+              window.AuthManager.deleteTeacher(btn.dataset.nick);
+              renderTeachersList();
+            }
+          });
+        });
+      }
+
+      // 4. Clases y Calificaciones Globales
+      function renderAllClassesAndSubmissions() {
+        document.getElementById("owner-header-title").textContent = "Supervisión Global de Clases y Calificaciones";
+        const classes = window.AuthManager.getClasses();
+        const subs = window.AuthManager.getSubmissions();
+
+        container.innerHTML = `
+          <div class="fade-in">
+            <h3 style="font-size:1.2rem; font-weight:800; margin-bottom:12px;">🏫 Todas las Clases Creadas (${classes.length})</h3>
+            <div class="classes-grid" style="margin-bottom:30px;">
+              ${classes.map(c => `
+                <div class="class-card-box">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="class-code-badge">${c.code}</span>
+                    <span style="font-size:0.8rem; color:#10b981;">${c.questionCount} Preguntas</span>
+                  </div>
+                  <h4 style="font-size:1.15rem; font-weight:800; color:#f9fafb;">${c.name}</h4>
+                  <div style="font-size:0.85rem; color:var(--text-secondary);">Profesor: <strong>${c.teacherNick}</strong></div>
+                  <div style="font-size:0.8rem; color:var(--text-muted);">${c.institution || "Promoción Social"}</div>
+                </div>
+              `).join('')}
+            </div>
+
+            <h3 style="font-size:1.2rem; font-weight:800; margin-bottom:12px;">📈 Todas las Calificaciones de Alumnos (${subs.length})</h3>
+            <div class="submissions-table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Alumno</th>
+                    <th>Grado</th>
+                    <th>Clase</th>
+                    <th>Calificación</th>
+                    <th>Aciertos</th>
+                    <th>Fecha</th>
+                    <th>Boleta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${subs.map(s => {
+                    const scoreClass = s.score >= 80 ? "high" : s.score >= 60 ? "mid" : "low";
+                    return `
+                      <tr>
+                        <td>
+                          <strong>${s.fullName || s.studentNick}</strong>
+                          <div style="font-size:0.75rem; color:var(--text-muted);">${s.studentNick}</div>
+                        </td>
+                        <td>${s.grade || "1102"}</td>
+                        <td><code style="color:#60a5fa;">${s.classCode}</code></td>
+                        <td><span class="score-badge-pill ${scoreClass}">${s.score} / 100</span></td>
+                        <td>${s.correctCount} / ${s.totalQuestions}</td>
+                        <td style="color:var(--text-muted); font-size:0.8rem;">${s.date}</td>
+                        <td>
+                          <button class="download-cert-btn-table" data-sub='${JSON.stringify(s)}' style="background:#10b981; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:700; cursor:pointer;">
+                            📥 Boleta .PNG
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        container.querySelectorAll(".download-cert-btn-table").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const s = JSON.parse(btn.dataset.sub);
+            window.CertificateGenerator.downloadCertificate({
+              studentNick: s.studentNick,
+              fullName: s.fullName || s.studentNick,
+              grade: s.grade || "1102",
+              institution: s.institution || "Promoción Social",
+              score: s.score,
+              correctCount: s.correctCount,
+              totalQuestions: s.totalQuestions,
+              topicsName: "Evaluación de Clase",
+              classCode: s.classCode
+            });
+          });
+        });
+      }
+
+      // Iniciar con aprobaciones
+      renderApprovals();
+    });
+  </script>
+</body>
+</html>

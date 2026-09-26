@@ -1,26 +1,24 @@
 // ========================================================
-// VerbFlow - Auth & Classroom Manager (v3.0)
-// Sesión volátil con sessionStorage (se cierra al cerrar pestaña)
-// Registro completo con Institución ("Promoción Social"), Grado, Cédula y Nombre Completo
+// VerbFlow - Auth & Classroom Manager (v4.0)
+// Sesión volátil con sessionStorage
+// Aprobación en tiempo real, creación directa de profesores por el Owner,
+// y gestión completa de clases y alumnos
 // ========================================================
 
 const AuthManager = (() => {
   const STORAGE_KEYS = {
     USERS: "verbflow_users_db",
-    CURRENT_USER: "verbflow_active_session", // Almacenado en sessionStorage para cerrarse al cerrar pestaña
+    CURRENT_USER: "verbflow_active_session",
     CLASSES: "verbflow_classes_db",
     SUBMISSIONS: "verbflow_submissions_db"
   };
 
-  // Limpiar cualquier sesión antigua persistente en localStorage para asegurar que no quede abierta
   try {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   } catch(e) {}
 
-  // Inicializar Base de Datos con el Owner por defecto
   function initDB() {
     let users = getUsers();
-    // Asegurar que TheKeas exista como Owner
     const ownerExists = users.some(u => u.nick.toLowerCase() === "thekeas");
     if (!ownerExists) {
       users.push({
@@ -57,7 +55,6 @@ const AuthManager = (() => {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   }
 
-  // USO DE SESSIONSTORAGE: Se cierra automáticamente al cerrar la pestaña o el navegador
   function getCurrentUser() {
     try {
       const data = sessionStorage.getItem(STORAGE_KEYS.CURRENT_USER);
@@ -75,7 +72,7 @@ const AuthManager = (() => {
     }
   }
 
-  // Registro de usuarios con nuevos campos solicitados
+  // Registro de usuarios
   function register({ nick, password, role, fullName, institution, grade, idCard }) {
     initDB();
     const cleanNick = (nick || "").trim();
@@ -105,7 +102,6 @@ const AuthManager = (() => {
       return { success: false, message: "Por favor ingresa tu Cédula de Ciudadanía o Documento de Identidad." };
     }
 
-    // No permitir registrar 'TheKeas' con otro rol o si ya existe
     if (cleanNick.toLowerCase() === "thekeas") {
       return { success: false, message: "El nick 'TheKeas' es reservado exclusivamente para el Owner." };
     }
@@ -131,16 +127,58 @@ const AuthManager = (() => {
     saveUsers(users);
 
     if (isTeacher) {
+      sessionStorage.setItem("verbflow_waiting_approval", cleanNick);
       return {
         success: true,
         pending: true,
-        message: "Tu cuenta de Profesor ha sido registrada. Está pendiente de aprobación por el Owner (TheKeas)."
+        waitingNick: cleanNick,
+        message: "Tu cuenta de Profesor ha sido registrada y está esperando autorización por TheKeas. Apenas sea aprobada ingresarás automáticamente."
       };
     } else {
-      // Auto-login en sessionStorage para alumnos
       setCurrentUser(newUser);
       return { success: true, pending: false, user: newUser, message: "¡Registro exitoso! Bienvenido." };
     }
+  }
+
+  // Creación DIRECTA de profesor por el Owner (sin pasar por estado pendiente)
+  function createTeacherDirectly({ nick, password, fullName, institution, idCard }) {
+    initDB();
+    const cleanNick = (nick || "").trim();
+    const cleanPass = (password || "").trim();
+    const cleanFullName = (fullName || "").trim();
+    const cleanInstitution = (institution || "Promoción Social").trim();
+    const cleanIdCard = (idCard || "").trim();
+
+    if (!cleanNick || cleanNick.length < 3) {
+      return { success: false, message: "El Nickname debe tener al menos 3 caracteres." };
+    }
+    if (!cleanPass || cleanPass.length < 4) {
+      return { success: false, message: "La contraseña debe tener al menos 4 caracteres." };
+    }
+    if (!cleanFullName) {
+      return { success: false, message: "Ingresa el nombre completo del profesor." };
+    }
+
+    const users = getUsers();
+    if (users.some(u => u.nick.toLowerCase() === cleanNick.toLowerCase())) {
+      return { success: false, message: "Ese Nickname ya existe en el sistema." };
+    }
+
+    const newTeacher = {
+      nick: cleanNick,
+      password: cleanPass,
+      fullName: cleanFullName,
+      institution: cleanInstitution,
+      grade: "Docente",
+      idCard: cleanIdCard || "N/A",
+      role: "teacher",
+      status: "approved", // Inmediatamente aprobado
+      createdAt: new Date().toISOString()
+    };
+
+    users.push(newTeacher);
+    saveUsers(users);
+    return { success: true, teacher: newTeacher };
   }
 
   // Inicio de sesión por Nickname + Password
@@ -160,9 +198,12 @@ const AuthManager = (() => {
     }
 
     if (user.role === "teacher" && user.status === "pending") {
+      sessionStorage.setItem("verbflow_waiting_approval", cleanNick);
       return {
         success: false,
-        message: "Tu cuenta de Profesor todavía está pendiente de verificación y aprobación por el Owner (TheKeas)."
+        pending: true,
+        waitingNick: cleanNick,
+        message: "Tu cuenta de Profesor está esperando aprobación por el Owner (TheKeas). Deja esta ventana abierta para ingresar automáticamente."
       };
     }
 
@@ -173,13 +214,27 @@ const AuthManager = (() => {
       };
     }
 
-    // Guardar en sessionStorage para que expire al cerrar la pestaña
     setCurrentUser(user);
+    sessionStorage.removeItem("verbflow_waiting_approval");
     return { success: true, user: user };
+  }
+
+  // Verificar si un profesor pendiente ya fue aprobado (para auto-login en tiempo real)
+  function checkWaitingApproval(nick) {
+    if (!nick) return null;
+    const users = getUsers();
+    const user = users.find(u => u.nick.toLowerCase() === nick.toLowerCase());
+    if (user && user.status === "approved") {
+      setCurrentUser(user);
+      sessionStorage.removeItem("verbflow_waiting_approval");
+      return user;
+    }
+    return null;
   }
 
   function logout() {
     setCurrentUser(null);
+    sessionStorage.removeItem("verbflow_waiting_approval");
   }
 
   // Métodos del Owner (TheKeas)
@@ -215,6 +270,13 @@ const AuthManager = (() => {
       return true;
     }
     return false;
+  }
+
+  function deleteTeacher(teacherNick) {
+    let users = getUsers();
+    users = users.filter(u => u.nick.toLowerCase() !== teacherNick.toLowerCase());
+    saveUsers(users);
+    return true;
   }
 
   // ========================================================
@@ -266,6 +328,13 @@ const AuthManager = (() => {
     return { success: true, classroom: newClass };
   }
 
+  function deleteClass(code) {
+    let classes = getClasses();
+    classes = classes.filter(c => c.code.toUpperCase() !== code.toUpperCase());
+    saveClasses(classes);
+    return true;
+  }
+
   function getClassByCode(code) {
     if (!code) return null;
     const cleanCode = code.trim().toUpperCase();
@@ -300,7 +369,7 @@ const AuthManager = (() => {
       fullName: fullName || (currentUser ? currentUser.fullName : studentNick) || "Estudiante",
       grade: grade || (currentUser ? currentUser.grade : "1102"),
       institution: institution || (currentUser ? currentUser.institution : "Promoción Social"),
-      score: score, // Escala 0 a 100
+      score: score,
       correctCount: correctCount,
       totalQuestions: totalQuestions,
       topics: topics || [],
@@ -331,13 +400,17 @@ const AuthManager = (() => {
     getCurrentUser,
     setCurrentUser,
     register,
+    createTeacherDirectly,
     login,
     logout,
+    checkWaitingApproval,
     getPendingTeachers,
     getAllTeachers,
     approveTeacher,
     rejectTeacher,
+    deleteTeacher,
     createClass,
+    deleteClass,
     getClasses,
     getClassByCode,
     recordSubmission,

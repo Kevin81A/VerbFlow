@@ -564,53 +564,123 @@ const QuestionsBank = (() => {
   }
 
   // ========================================================
-  // ALGORITMO DE SELECCIÓN PONDERADA DE PREGUNTAS
+  // SISTEMA ESTRICTO ANTI-REPETICIÓN DE PREGUNTAS
   // ========================================================
-  // Prioriza preguntas MEDIAS y DIFÍCILES, con menor proporción de fáciles
-  function selectQuestionsWeighted({ topics, count, difficultyMode = "weighted" }) {
+  function getSeenQuestions(userKey) {
+    try {
+      const data = localStorage.getItem(`verbflow_seen_q_${userKey}`);
+      return data ? new Set(JSON.parse(data)) : new Set();
+    } catch(e) {
+      return new Set();
+    }
+  }
+
+  function markQuestionsAsSeen(userKey, questionIds) {
+    try {
+      const seen = getSeenQuestions(userKey);
+      questionIds.forEach(id => seen.add(id));
+      localStorage.setItem(`verbflow_seen_q_${userKey}`, JSON.stringify(Array.from(seen)));
+    } catch(e) {}
+  }
+
+  // Selección ponderada garantizando CERO preguntas repetidas
+  function selectQuestionsWeighted({ topics, count, difficultyMode = "weighted", userNick = "default" }) {
     let selectedTopics = topics && topics.length > 0 ? topics : TENSE_CONFIGS.map(t => t.id);
-    // Filtrar temas válidos
     selectedTopics = selectedTopics.filter(id => BANK[id]);
     if (selectedTopics.length === 0) selectedTopics = TENSE_CONFIGS.map(t => t.id);
 
     const totalCount = parseInt(count, 10) || 25;
+    const seenSet = getSeenQuestions(userNick);
 
-    // Si el usuario eligió una dificultad específica para práctica libre
+    function getFreshPool(pool) {
+      const fresh = pool.filter(q => !seenSet.has(q.id));
+      if (fresh.length < Math.min(5, pool.length)) {
+        return pool;
+      }
+      return fresh;
+    }
+
+    let finalSelection = [];
+    const usedIds = new Set();
+
     if (difficultyMode === "easy" || difficultyMode === "medium" || difficultyMode === "hard") {
       let pool = [];
       selectedTopics.forEach(tId => {
         pool = pool.concat(BANK[tId][difficultyMode]);
       });
-      shuffleArray(pool);
-      return pool.slice(0, Math.min(totalCount, pool.length));
+      const freshPool = getFreshPool(pool);
+      shuffleArray(freshPool);
+
+      for (const q of freshPool) {
+        if (!usedIds.has(q.id)) {
+          usedIds.add(q.id);
+          finalSelection.push(q);
+          if (finalSelection.length >= totalCount) break;
+        }
+      }
+    } else {
+      // Distribución ponderada: ~50% Medias, ~35% Difíciles, ~15% Fáciles
+      const hardCount = Math.max(1, Math.round(totalCount * 0.35));
+      const easyCount = Math.max(1, Math.round(totalCount * 0.15));
+      const mediumCount = Math.max(1, totalCount - hardCount - easyCount);
+
+      let easyPool = [];
+      let mediumPool = [];
+      let hardPool = [];
+
+      selectedTopics.forEach(tId => {
+        easyPool = easyPool.concat(BANK[tId].easy);
+        mediumPool = mediumPool.concat(BANK[tId].medium);
+        hardPool = hardPool.concat(BANK[tId].hard);
+      });
+
+      const freshEasy = getFreshPool(easyPool);
+      const freshMed = getFreshPool(mediumPool);
+      const freshHard = getFreshPool(hardPool);
+
+      shuffleArray(freshEasy);
+      shuffleArray(freshMed);
+      shuffleArray(freshHard);
+
+      for (const q of freshHard) {
+        if (!usedIds.has(q.id)) {
+          usedIds.add(q.id);
+          finalSelection.push(q);
+          if (finalSelection.length >= hardCount) break;
+        }
+      }
+
+      for (const q of freshMed) {
+        if (!usedIds.has(q.id)) {
+          usedIds.add(q.id);
+          finalSelection.push(q);
+          if (finalSelection.length >= (hardCount + mediumCount)) break;
+        }
+      }
+
+      for (const q of freshEasy) {
+        if (!usedIds.has(q.id)) {
+          usedIds.add(q.id);
+          finalSelection.push(q);
+          if (finalSelection.length >= totalCount) break;
+        }
+      }
+
+      if (finalSelection.length < totalCount) {
+        let allPool = [...hardPool, ...mediumPool, ...easyPool];
+        shuffleArray(allPool);
+        for (const q of allPool) {
+          if (!usedIds.has(q.id)) {
+            usedIds.add(q.id);
+            finalSelection.push(q);
+            if (finalSelection.length >= totalCount) break;
+          }
+        }
+      }
     }
 
-    // Distribución ponderada para exámenes de clase o pruebas exigentes:
-    // ~50% Medias, ~35% Difíciles, ~15% Fáciles
-    const hardCount = Math.max(1, Math.round(totalCount * 0.35));
-    const easyCount = Math.max(1, Math.round(totalCount * 0.15));
-    const mediumCount = Math.max(1, totalCount - hardCount - easyCount);
-
-    let easyPool = [];
-    let mediumPool = [];
-    let hardPool = [];
-
-    selectedTopics.forEach(tId => {
-      easyPool = easyPool.concat(BANK[tId].easy);
-      mediumPool = mediumPool.concat(BANK[tId].medium);
-      hardPool = hardPool.concat(BANK[tId].hard);
-    });
-
-    shuffleArray(easyPool);
-    shuffleArray(mediumPool);
-    shuffleArray(hardPool);
-
-    const chosenEasy = easyPool.slice(0, easyCount);
-    const chosenMed = mediumPool.slice(0, mediumCount);
-    const chosenHard = hardPool.slice(0, hardCount);
-
-    let finalSelection = [...chosenEasy, ...chosenMed, ...chosenHard];
     shuffleArray(finalSelection);
+    markQuestionsAsSeen(userNick, Array.from(usedIds));
 
     return finalSelection.slice(0, totalCount);
   }

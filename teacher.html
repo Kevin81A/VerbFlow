@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VerbFlow — Portal Docente (Teacher Suite)</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Sidebar del Profesor -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title" style="background: linear-gradient(90deg, #c084fc, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Teacher Suite
+          </div>
+          <div class="brand-sub">Panel Docente VerbFlow</div>
+        </div>
+      </div>
+
+      <div class="sidebar-content" style="padding: 16px 12px; display:flex; flex-direction:column; gap:6px;">
+        <button class="tense-item-btn active" id="nav-btn-classes">
+          <div class="tense-btn-left">
+            <span>🏫</span>
+            <div class="tense-btn-info">
+              <span class="tense-btn-name">Mis Clases</span>
+              <span class="tense-btn-es">Códigos y grupos</span>
+            </div>
+          </div>
+        </button>
+
+        <button class="tense-item-btn" id="nav-btn-create">
+          <div class="tense-btn-left">
+            <span>➕</span>
+            <div class="tense-btn-info">
+              <span class="tense-btn-name">Crear Nueva Clase</span>
+              <span class="tense-btn-es">Configurar examen</span>
+            </div>
+          </div>
+        </button>
+
+        <button class="tense-item-btn" id="nav-btn-results">
+          <div class="tense-btn-left">
+            <span>📈</span>
+            <div class="tense-btn-info">
+              <span class="tense-btn-name">Calificaciones en Vivo</span>
+              <span class="tense-btn-es">Resultados de alumnos</span>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div class="sidebar-footer" style="flex-direction:column; gap:10px; align-items:stretch;">
+        <a href="index.html" class="cheat-sheet-btn" style="text-decoration:none; justify-content:center;">
+          🌐 Ir a Portal de Estudio
+        </a>
+        <button class="btn-secondary" id="teacher-logout-btn" style="color:#f43f5e; border-color:#f43f5e55;">
+          🚪 Cerrar Sesión
+        </button>
+      </div>
+    </aside>
+
+    <!-- Área Principal del Profesor -->
+    <main class="main-wrapper">
+      <header class="top-header">
+        <div class="header-left">
+          <div class="header-title-box">
+            <h1 id="teacher-header-title">Panel Docente</h1>
+          </div>
+          <span class="header-badge" style="background:rgba(139,92,246,0.2); color:#c084fc; border:1px solid rgba(139,92,246,0.5);">
+            Docente Verificado
+          </span>
+        </div>
+
+        <div class="header-stats">
+          <div class="user-profile-badge">
+            <strong id="teacher-name-display">Profesor</strong>
+            <span class="user-role-tag role-teacher">Teacher</span>
+          </div>
+          <button class="theme-toggle-btn" id="theme-toggle-btn" title="Cambiar tema">
+            🌙
+          </button>
+        </div>
+      </header>
+
+      <div class="content-area" id="teacher-main-container">
+        <!-- Inyectado dinámicamente -->
+      </div>
+    </main>
+  </div>
+
+  <script src="auth-manager.js"></script>
+  <script src="certificate-generator.js"></script>
+  <script src="questions-bank.js"></script>
+  <script src="tenses-data.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const user = window.AuthManager.getCurrentUser();
+
+      // Verificar que el usuario sea Teacher u Owner
+      if (!user || (user.role !== "teacher" && user.role !== "owner")) {
+        alert("Debes iniciar sesión con una cuenta de Profesor o de Owner para acceder a este panel.");
+        window.location.href = "index.html";
+        return;
+      }
+
+      document.getElementById("teacher-name-display").textContent = user.fullName || user.nick;
+
+      const container = document.getElementById("teacher-main-container");
+      const navClasses = document.getElementById("nav-btn-classes");
+      const navCreate = document.getElementById("nav-btn-create");
+      const navResults = document.getElementById("nav-btn-results");
+
+      function setTab(activeBtn) {
+        [navClasses, navCreate, navResults].forEach(b => b.classList.remove("active"));
+        activeBtn.classList.add("active");
+      }
+
+      navClasses.addEventListener("click", () => {
+        setTab(navClasses);
+        renderClassesList();
+      });
+
+      navCreate.addEventListener("click", () => {
+        setTab(navCreate);
+        renderCreateClassForm();
+      });
+
+      navResults.addEventListener("click", () => {
+        setTab(navResults);
+        renderLiveResults();
+      });
+
+      document.getElementById("teacher-logout-btn").addEventListener("click", () => {
+        window.AuthManager.logout();
+        window.location.href = "index.html";
+      });
+
+      // Tema
+      const themeBtn = document.getElementById("theme-toggle-btn");
+      if (themeBtn) {
+        if (localStorage.getItem("verbflow_theme") === "light") document.body.classList.add("light-theme");
+        themeBtn.addEventListener("click", () => {
+          document.body.classList.toggle("light-theme");
+          localStorage.setItem("verbflow_theme", document.body.classList.contains("light-theme") ? "light" : "dark");
+        });
+      }
+
+      // 1. Vista de Mis Clases
+      function renderClassesList() {
+        document.getElementById("teacher-header-title").textContent = "Mis Clases Creadas";
+        const classes = window.AuthManager.getClasses().filter(c => c.teacherNick.toLowerCase() === user.nick.toLowerCase() || user.role === "owner");
+
+        if (classes.length === 0) {
+          container.innerHTML = `
+            <div class="exercise-card fade-in" style="text-align:center; padding:50px 20px;">
+              <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:8px;">Aún no has creado ninguna clase</h3>
+              <p style="color:var(--text-secondary); margin-bottom:20px;">Crea una clase para generar el código que le darás a tus alumnos para que presenten su evaluación.</p>
+              <button class="fill-submit-btn" id="btn-go-create" style="margin:0 auto;">
+                ➕ Crear Mi Primera Clase
+              </button>
+            </div>
+          `;
+          document.getElementById("btn-go-create")?.addEventListener("click", () => navCreate.click());
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="fade-in">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+              <p style="color:var(--text-secondary);">Tienes <strong>${classes.length}</strong> clase(s) activa(s):</p>
+              <button class="fill-submit-btn" id="btn-quick-create" style="padding:10px 18px; font-size:0.9rem;">+ Nueva Clase</button>
+            </div>
+
+            <div class="classes-grid">
+              ${classes.map(c => `
+                <div class="class-card-box">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="class-code-badge">${c.code}</span>
+                    <span style="font-size:0.8rem; color:#10b981; font-weight:700;">${c.questionCount} Preguntas</span>
+                  </div>
+                  <h3 style="font-size:1.25rem; font-weight:800; color:#f9fafb;">${c.name}</h3>
+                  <div style="font-size:0.85rem; color:var(--text-secondary);">
+                    🏛️ <strong>${c.institution || "Promoción Social"}</strong>
+                  </div>
+                  <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.4;">
+                    <strong>Temas:</strong> ${c.selectedTopics.map(id => window.TENSES_DATA.find(t=>t.id===id)?.name || id).join(', ')}
+                  </div>
+                  <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="btn-secondary copy-code-btn" data-code="${c.code}" style="flex:1; font-size:0.85rem; padding:8px;">
+                      📋 Copiar Código
+                    </button>
+                    <button class="btn-secondary delete-class-btn" data-code="${c.code}" style="color:#f43f5e; padding:8px 12px;" title="Eliminar clase">
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+
+        document.getElementById("btn-quick-create")?.addEventListener("click", () => navCreate.click());
+
+        container.querySelectorAll(".copy-code-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            navigator.clipboard.writeText(btn.dataset.code).then(() => {
+              btn.textContent = "✔ ¡Copiado!";
+              setTimeout(() => btn.textContent = "📋 Copiar Código", 2000);
+            });
+          });
+        });
+
+        container.querySelectorAll(".delete-class-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            if (confirm(`¿Seguro que deseas eliminar la clase con código ${btn.dataset.code}?`)) {
+              window.AuthManager.deleteClass(btn.dataset.code);
+              renderClassesList();
+            }
+          });
+        });
+      }
+
+      // 2. Vista de Crear Clase
+      function renderCreateClassForm() {
+        document.getElementById("teacher-header-title").textContent = "Crear Nueva Clase y Evaluación";
+        container.innerHTML = `
+          <div class="exercise-card fade-in" style="max-width:800px; margin:0 auto;">
+            <h2 style="font-family:var(--font-display); font-size:1.5rem; font-weight:800; margin-bottom:6px;">
+              Configuración de la Clase y Examen
+            </h2>
+            <p style="color:var(--text-secondary); margin-bottom:20px; font-size:0.92rem;">
+              Define el nombre de tu grupo, selecciona los temas a evaluar y la cantidad de preguntas. Se generará un código único para tus estudiantes.
+            </p>
+
+            <form id="teacher-new-class-form">
+              <div class="form-group">
+                <label class="form-label" for="class-name-input">Nombre de la Clase o Grupo:</label>
+                <input type="text" id="class-name-input" class="form-input" placeholder="Ej: Inglés Grado 1102 - Examen Parcial" required />
+              </div>
+
+              <div class="form-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <label class="form-label">Temas a incluir en la evaluación:</label>
+                  <div>
+                    <button type="button" id="btn-sel-all" style="font-size:0.8rem; color:#60a5fa; margin-right:8px;">Todos</button>
+                    <button type="button" id="btn-desel-all" style="font-size:0.8rem; color:var(--text-muted);">Ninguno</button>
+                  </div>
+                </div>
+
+                <div class="topics-selector-grid">
+                  ${window.TENSES_DATA.map(t => `
+                    <label class="topic-checkbox-label checked">
+                      <input type="checkbox" name="teacher-topic-box" value="${t.id}" checked />
+                      <div>
+                        <div style="font-weight:700; font-size:0.9rem;">${t.name}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">${t.nameEs}</div>
+                      </div>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="class-qcount-select">Cantidad de preguntas a evaluar:</label>
+                <select id="class-qcount-select" class="form-select">
+                  <option value="10">10 Preguntas</option>
+                  <option value="15">15 Preguntas</option>
+                  <option value="20">20 Preguntas</option>
+                  <option value="25" selected>25 Preguntas (Recomendado - 50% Medias, 35% Difíciles, 15% Fáciles)</option>
+                  <option value="30">30 Preguntas</option>
+                  <option value="50">50 Preguntas</option>
+                </select>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">
+                  *El sistema seleccionará automáticamente preguntas del banco masivo de 1.050 preguntas priorizando las medias y difíciles, sin repetir preguntas entre alumnos.
+                </p>
+              </div>
+
+              <div id="create-class-err" style="color:#f43f5e; font-size:0.88rem; margin-bottom:12px; display:none;"></div>
+
+              <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+                <button type="submit" class="fill-submit-btn" style="padding:14px 28px; font-size:1rem;">
+                  🚀 Guardar Clase y Generar Código
+                </button>
+              </div>
+            </form>
+          </div>
+        `;
+
+        document.getElementById("btn-sel-all")?.addEventListener("click", () => {
+          container.querySelectorAll("input[name='teacher-topic-box']").forEach(i => {
+            i.checked = true;
+            i.closest(".topic-checkbox-label")?.classList.add("checked");
+          });
+        });
+
+        document.getElementById("btn-desel-all")?.addEventListener("click", () => {
+          container.querySelectorAll("input[name='teacher-topic-box']").forEach(i => {
+            i.checked = false;
+            i.closest(".topic-checkbox-label")?.classList.remove("checked");
+          });
+        });
+
+        container.querySelectorAll("input[name='teacher-topic-box']").forEach(i => {
+          i.addEventListener("change", (e) => {
+            const label = e.target.closest(".topic-checkbox-label");
+            if (e.target.checked) label?.classList.add("checked");
+            else label?.classList.remove("checked");
+          });
+        });
+
+        document.getElementById("teacher-new-class-form")?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const name = document.getElementById("class-name-input").value.trim();
+          const qcount = document.getElementById("class-qcount-select").value;
+          const checked = Array.from(container.querySelectorAll("input[name='teacher-topic-box']:checked")).map(c => c.value);
+
+          const errEl = document.getElementById("create-class-err");
+          if (checked.length === 0) {
+            errEl.textContent = "Debes seleccionar al menos un tema.";
+            errEl.style.display = "block";
+            return;
+          }
+
+          const res = window.AuthManager.createClass(name, checked, qcount);
+          if (res.success) {
+            alert(`¡Clase creada exitosamente!\nCódigo de clase generado: ${res.classroom.code}\nCompártelo con tus alumnos para que presenten su prueba.`);
+            navClasses.click();
+          } else {
+            errEl.textContent = res.message;
+            errEl.style.display = "block";
+          }
+        });
+      }
+
+      // 3. Vista de Calificaciones en Tiempo Real
+      function renderLiveResults() {
+        document.getElementById("teacher-header-title").textContent = "Resultados y Calificaciones en Tiempo Real";
+        const submissions = window.AuthManager.getSubmissions();
+
+        if (submissions.length === 0) {
+          container.innerHTML = `
+            <div class="exercise-card fade-in" style="text-align:center; padding:50px 20px;">
+              <h3 style="font-size:1.4rem; font-weight:800; margin-bottom:8px;">Aún no hay alumnos que hayan presentado pruebas</h3>
+              <p style="color:var(--text-secondary);">Cuando tus alumnos ingresen el código de la clase y culminen su evaluación, sus resultados y boletas aparecerán aquí al instante.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="fade-in">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+              <p style="color:var(--text-secondary);">
+                Total de evaluaciones registradas: <strong>${submissions.length}</strong>
+              </p>
+              <button class="fill-submit-btn" id="btn-refresh-res" style="padding:8px 16px; font-size:0.85rem;">
+                🔄 Actualizar Tabla
+              </button>
+            </div>
+
+            <div class="submissions-table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Nombre Completo</th>
+                    <th>Grado</th>
+                    <th>Código Clase</th>
+                    <th>Nota (0-100)</th>
+                    <th>Aciertos / Total</th>
+                    <th>Fecha</th>
+                    <th>Boleta Oficial</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${submissions.map(s => {
+                    const scoreClass = s.score >= 80 ? "high" : s.score >= 60 ? "mid" : "low";
+                    return `
+                      <tr>
+                        <td>
+                          <strong>${s.fullName || s.studentNick}</strong>
+                          <div style="font-size:0.75rem; color:var(--text-muted);">${s.studentNick}</div>
+                        </td>
+                        <td><strong>${s.grade || "1102"}</strong></td>
+                        <td><code style="color:#60a5fa; font-weight:800;">${s.classCode}</code></td>
+                        <td><span class="score-badge-pill ${scoreClass}">${s.score} / 100</span></td>
+                        <td>${s.correctCount} / ${s.totalQuestions}</td>
+                        <td style="color:var(--text-muted); font-size:0.8rem;">${s.date}</td>
+                        <td>
+                          <button class="download-cert-btn-table" data-sub='${JSON.stringify(s)}' style="background:#10b981; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:700; cursor:pointer;">
+                            📥 Boleta .PNG
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("btn-refresh-res")?.addEventListener("click", () => renderLiveResults());
+
+        container.querySelectorAll(".download-cert-btn-table").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const s = JSON.parse(btn.dataset.sub);
+            window.CertificateGenerator.downloadCertificate({
+              studentNick: s.studentNick,
+              fullName: s.fullName || s.studentNick,
+              grade: s.grade || "1102",
+              institution: s.institution || "Promoción Social",
+              score: s.score,
+              correctCount: s.correctCount,
+              totalQuestions: s.totalQuestions,
+              topicsName: "Evaluación de Clase",
+              classCode: s.classCode
+            });
+          });
+        });
+      }
+
+      // Iniciar con la vista de clases
+      renderClassesList();
+    });
+  </script>
+</body>
+</html>

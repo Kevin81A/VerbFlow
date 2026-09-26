@@ -114,36 +114,37 @@
           </button>
         </div>
 
-        <!-- Estadísticas, Panel Docente & Sesión de Usuario -->
+        <!-- Estadísticas, Portales & Sesión de Usuario -->
         <div class="header-stats">
-          <!-- Botón de Notificaciones para el Owner (TheKeas) -->
-          <button class="notif-bell-btn" id="owner-notif-btn" style="display:none;" title="Solicitudes de Profesores pendientes">
+          <!-- Botón de Acceso al Panel del Owner (TheKeas) -->
+          <a href="owner.html" class="login-trigger-btn" id="owner-suite-link" style="display:none; text-decoration:none; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.5);">
+            👑 Panel Owner
+          </a>
+
+          <!-- Botón de Notificaciones para TheKeas -->
+          <a href="owner.html" class="notif-bell-btn" id="owner-notif-btn" style="display:none; text-decoration:none;" title="Solicitudes de Profesores pendientes">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
             </svg>
             <span class="notif-badge-bubble" id="owner-notif-count">0</span>
-          </button>
+          </a>
 
-          <!-- Botón de Panel Teacher -->
-          <button class="login-trigger-btn" id="teacher-suite-btn" style="display:none; background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.4);">
+          <!-- Botón de Acceso a la Suite Docente (Teacher) -->
+          <a href="teacher.html" class="login-trigger-btn" id="teacher-suite-link" style="display:none; text-decoration:none; background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.4);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
               <line x1="8" y1="21" x2="16" y2="21"></line>
               <line x1="12" y1="17" x2="12" y2="21"></line>
             </svg>
             Panel Docente
-          </button>
+          </a>
 
           <!-- Caja de sesión de usuario -->
           <div class="user-auth-box" id="user-auth-container"></div>
 
-          <div class="stat-chip" title="Experiencia ganada">
-            <span style="color:#fbbf24;">⚡</span>
-            <span id="user-xp">0 XP</span>
-          </div>
-
-          <div class="stat-chip" title="Racha de respuestas correctas seguidas">
+          <!-- Racha de días: Solo visible para Alumnos -->
+          <div class="stat-chip" id="user-streak-chip" title="Racha de respuestas correctas seguidas" style="display:none;">
             <span id="user-streak">🔥 0</span>
           </div>
 

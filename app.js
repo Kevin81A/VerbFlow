@@ -53,8 +53,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateStatsDisplay() {
     const xpEl = document.getElementById("user-xp");
     const streakEl = document.getElementById("user-streak");
+    const streakChip = document.getElementById("user-streak-chip");
     if (xpEl) xpEl.textContent = `${state.userStats.xp || 0} XP`;
     if (streakEl) streakEl.textContent = `🔥 ${state.userStats.streak || 0}`;
+
+    const currentUser = window.AuthManager.getCurrentUser();
+    if (streakChip) {
+      streakChip.style.display = (currentUser && currentUser.role === "student") ? "flex" : "none";
+    }
   }
 
   function speakEnglish(text, btnElement) {
@@ -87,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyLockdownMode(isLockdown) {
     state.isClassExam = isLockdown;
     const banner = document.getElementById("lockdown-exam-banner");
-    const sidebar = document.getElementById("app-sidebar");
+    const sidebar = document.getElementById("app-sidebar") || document.querySelector(".sidebar");
     const modeTabs = document.getElementById("header-mode-tabs");
     const mobileMenuBtn = document.getElementById("mobile-menu-btn");
 
@@ -98,9 +104,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (mobileMenuBtn) mobileMenuBtn.style.display = "none";
     } else {
       if (banner) banner.style.display = "none";
-      if (sidebar) sidebar.style.display = "flex";
+      if (sidebar && state.currentMode !== "practice") sidebar.style.display = "flex";
       if (modeTabs) modeTabs.style.display = "flex";
-      if (mobileMenuBtn) mobileMenuBtn.style.display = "block";
+      if (mobileMenuBtn && state.currentMode !== "practice") mobileMenuBtn.style.display = "block";
     }
   }
 
@@ -109,13 +115,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // ========================================================
   function renderUserHeader() {
     const container = document.getElementById("user-auth-container");
+    const ownerSuiteLink = document.getElementById("owner-suite-link");
     const ownerNotifBtn = document.getElementById("owner-notif-btn");
     const ownerNotifCount = document.getElementById("owner-notif-count");
+    const teacherSuiteLink = document.getElementById("teacher-suite-link");
     const teacherSuiteBtn = document.getElementById("teacher-suite-btn");
+    const streakChip = document.getElementById("user-streak-chip");
 
     if (!container) return;
 
     const currentUser = window.AuthManager.getCurrentUser();
+
+    // Racha de respuestas correctas: estrictamente solo para Alumnos
+    if (streakChip) {
+      streakChip.style.display = (currentUser && currentUser.role === "student") ? "flex" : "none";
+    }
 
     if (!currentUser) {
       container.innerHTML = `
@@ -125,7 +139,9 @@ document.addEventListener("DOMContentLoaded", () => {
         </button>
       `;
 
+      if (ownerSuiteLink) ownerSuiteLink.style.display = "none";
       if (ownerNotifBtn) ownerNotifBtn.style.display = "none";
+      if (teacherSuiteLink) teacherSuiteLink.style.display = "none";
       if (teacherSuiteBtn) teacherSuiteBtn.style.display = "none";
 
       document.getElementById("open-auth-btn")?.addEventListener("click", () => {
@@ -163,19 +179,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (currentUser.role === "owner") {
       const pendingTeachers = window.AuthManager.getPendingTeachers();
+      if (ownerSuiteLink) ownerSuiteLink.style.display = "inline-flex";
       if (ownerNotifBtn && ownerNotifCount) {
         ownerNotifBtn.style.display = "flex";
         ownerNotifCount.textContent = pendingTeachers.length;
         ownerNotifCount.style.display = pendingTeachers.length > 0 ? "flex" : "none";
       }
-    } else if (ownerNotifBtn) {
-      ownerNotifBtn.style.display = "none";
-    }
-
-    if (currentUser.role === "teacher" || currentUser.role === "owner") {
+      if (teacherSuiteLink) teacherSuiteLink.style.display = "inline-flex";
       if (teacherSuiteBtn) teacherSuiteBtn.style.display = "flex";
-    } else if (teacherSuiteBtn) {
-      teacherSuiteBtn.style.display = "none";
+    } else if (currentUser.role === "teacher") {
+      if (ownerSuiteLink) ownerSuiteLink.style.display = "none";
+      if (ownerNotifBtn) ownerNotifBtn.style.display = "none";
+      if (teacherSuiteLink) teacherSuiteLink.style.display = "inline-flex";
+      if (teacherSuiteBtn) teacherSuiteBtn.style.display = "flex";
+    } else {
+      if (ownerSuiteLink) ownerSuiteLink.style.display = "none";
+      if (ownerNotifBtn) ownerNotifBtn.style.display = "none";
+      if (teacherSuiteLink) teacherSuiteLink.style.display = "none";
+      if (teacherSuiteBtn) teacherSuiteBtn.style.display = "none";
     }
   }
 
@@ -550,30 +571,52 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // INICIADORES DE EVALUACIONES
+  // INICIADORES DE EVALUACIONES (ANTI-REPETICIÓN ESTRICTA)
   // ========================================================
   function initSingleTensePractice() {
     applyLockdownMode(false);
     const tense = getCurrentTense();
     state.isCustomExam = false;
-    state.practiceQuestions = [...tense.exercises];
+    const currentUser = window.AuthManager.getCurrentUser();
+    const userNick = currentUser ? currentUser.nick : "default";
+
+    // Extraer 10 preguntas sin repetir desde el banco masivo de 1.050 preguntas
+    let questions = [];
+    if (window.QuestionsBank && window.QuestionsBank.BANK && window.QuestionsBank.BANK[tense.id]) {
+      questions = window.QuestionsBank.selectQuestionsWeighted({
+        topics: [tense.id],
+        count: 10,
+        difficultyMode: "weighted",
+        userNick: userNick
+      });
+    }
+
+    if (!questions || questions.length === 0) {
+      questions = [...tense.exercises];
+    }
+
+    state.practiceQuestions = questions;
     state.practiceIndex = 0;
     state.practiceScore = 0;
     state.isAnswerChecked = false;
     switchMode("practice");
   }
 
-  // Inicio de prueba de clase con MODO EXAMEN ESTRICTO (Anti-trampas)
+  // Inicio de prueba de clase con MODO EXAMEN ESTRICTO (Anti-trampas y Cero Repetición)
   function startClassroomExam(classroom) {
     applyLockdownMode(true);
     state.isCustomExam = true;
     state.isClassExam = true;
 
-    // Obtener preguntas usando el banco masivo con ponderación exigente
+    const currentUser = window.AuthManager.getCurrentUser();
+    const userNick = currentUser ? currentUser.nick : "default";
+
+    // Obtener preguntas usando el banco masivo con ponderación exigente y cero repetición
     const questions = window.QuestionsBank.selectQuestionsWeighted({
       topics: classroom.selectedTopics,
       count: classroom.questionCount || 25,
-      difficultyMode: "weighted" // Prioriza medias y difíciles
+      difficultyMode: "weighted", // Prioriza medias y difíciles
+      userNick: userNick
     });
 
     state.practiceQuestions = questions;
@@ -599,10 +642,14 @@ document.addEventListener("DOMContentLoaded", () => {
     state.isClassExam = false;
     state.selectedDifficulty = difficulty;
 
+    const currentUser = window.AuthManager.getCurrentUser();
+    const userNick = currentUser ? currentUser.nick : "default";
+
     const questions = window.QuestionsBank.selectQuestionsWeighted({
       topics: topics,
       count: questionCount || 10,
-      difficultyMode: difficulty
+      difficultyMode: difficulty,
+      userNick: userNick
     });
 
     state.practiceQuestions = questions;
@@ -908,6 +955,10 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderPracticeResults() {
     // Restaurar navegación normal tras culminar examen
     applyLockdownMode(false);
+    const sidebar = document.getElementById("app-sidebar") || document.querySelector(".sidebar");
+    const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+    if (sidebar) sidebar.style.display = "flex";
+    if (mobileMenuBtn) mobileMenuBtn.style.display = "block";
 
     const container = document.getElementById("main-view-container");
     const total = state.practiceQuestions.length;
@@ -1012,6 +1063,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("retry-exam-btn")?.addEventListener("click", () => {
       state.practiceIndex = 0;
       state.practiceScore = 0;
+      const sidebar = document.getElementById("app-sidebar") || document.querySelector(".sidebar");
+      const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+      if (sidebar) sidebar.style.display = "none";
+      if (mobileMenuBtn) mobileMenuBtn.style.display = "none";
       renderPracticeMode();
     });
 
@@ -1026,6 +1081,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     state.currentMode = newMode;
+
+    // Ocultar barra lateral en CUALQUIER prueba (repaso, examen de clase o personalizada)
+    const sidebar = document.getElementById("app-sidebar") || document.querySelector(".sidebar");
+    const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+
+    if (newMode === "practice") {
+      if (sidebar) sidebar.style.display = "none";
+      if (mobileMenuBtn) mobileMenuBtn.style.display = "none";
+    } else {
+      if (sidebar) sidebar.style.display = "flex";
+      if (mobileMenuBtn) mobileMenuBtn.style.display = "block";
+    }
+
     renderHeader();
     if (newMode === "study") {
       renderStudyMode();
@@ -1108,6 +1176,33 @@ document.addEventListener("DOMContentLoaded", () => {
     authModal.classList.remove("active");
   });
 
+  // ========================================================
+  // AUTO-LOGIN REACTIVO DE PROFESORES EN ESPERA DE APROBACIÓN
+  // ========================================================
+  let approvalWatcherInterval = null;
+
+  function initApprovalWatcher() {
+    const waitingNick = sessionStorage.getItem("verbflow_waiting_approval");
+    if (!waitingNick) return;
+
+    if (approvalWatcherInterval) clearInterval(approvalWatcherInterval);
+
+    approvalWatcherInterval = setInterval(() => {
+      const currentUser = window.AuthManager.getCurrentUser();
+      if (currentUser && currentUser.role === "teacher") {
+        clearInterval(approvalWatcherInterval);
+        return;
+      }
+
+      const approvedUser = window.AuthManager.checkWaitingApproval(waitingNick);
+      if (approvedUser) {
+        clearInterval(approvalWatcherInterval);
+        alert(`¡Excelente noticia, Profesor(a) ${approvedUser.fullName || approvedUser.nick}!\n\nTu solicitud de acceso ha sido aprobada y autorizada por TheKeas.\n\nAccediendo automáticamente a tu panel docente...`);
+        window.location.href = "teacher.html";
+      }
+    }, 2000);
+  }
+
   document.getElementById("auth-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
     const nick = document.getElementById("auth-nick").value.trim();
@@ -1137,8 +1232,15 @@ document.addEventListener("DOMContentLoaded", () => {
         authErrorMsg.style.display = "block";
       } else {
         if (res.pending) {
-          authSuccessMsg.textContent = res.message;
+          authSuccessMsg.innerHTML = `
+            <strong>⏳ Solicitud enviada a TheKeas</strong><br/>
+            ${res.message}<br/>
+            <small style="display:inline-block; margin-top:8px; color:#38bdf8; font-weight:600;">
+              🔄 Esperando autorización en tiempo real... (No cierres esta pestaña)
+            </small>
+          `;
           authSuccessMsg.style.display = "block";
+          initApprovalWatcher();
         } else {
           authModal.classList.remove("active");
           renderUserHeader();
@@ -1149,14 +1251,31 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       const res = window.AuthManager.login(nick, password);
       if (!res.success) {
-        authErrorMsg.textContent = res.message;
-        authErrorMsg.style.display = "block";
+        if (res.pending) {
+          authErrorMsg.style.display = "none";
+          authSuccessMsg.innerHTML = `
+            <strong>⏳ Esperando Aprobación de TheKeas</strong><br/>
+            ${res.message}<br/>
+            <small style="display:inline-block; margin-top:8px; color:#38bdf8; font-weight:600;">
+              🔄 Esperando autorización en tiempo real... (No cierres esta pestaña)
+            </small>
+          `;
+          authSuccessMsg.style.display = "block";
+          initApprovalWatcher();
+        } else {
+          authErrorMsg.textContent = res.message;
+          authErrorMsg.style.display = "block";
+        }
       } else {
         authModal.classList.remove("active");
         renderUserHeader();
         renderSidebar();
 
-        if (res.user.role === "student") {
+        if (res.user.role === "teacher") {
+          window.location.href = "teacher.html";
+        } else if (res.user.role === "owner") {
+          window.location.href = "owner.html";
+        } else {
           openStudentHubModal(res.user);
         }
       }
@@ -1754,4 +1873,5 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSidebar();
   renderHeader();
   renderStudyMode();
+  initApprovalWatcher();
 });
