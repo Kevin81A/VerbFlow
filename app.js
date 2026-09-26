@@ -1,19 +1,22 @@
 // ========================================================
-// VerbFlow - Application Engine (Actualizado)
-// Control de Modos (Estudio / Práctica), Evaluaciones a Medida,
-// Generación de Boletas en Imagen (0-100), Roles (TheKeas, Teachers, Alumnos)
+// VerbFlow - Application Engine (v3.0)
+// Modo Examen Estricto (Lockdown anti-trampa), Hub de Bienvenida del Alumno,
+// Banco Masivo de 1.050 preguntas con selección ponderada y Boleta Escolar
 // ========================================================
 
 document.addEventListener("DOMContentLoaded", () => {
   // Estado Global de la Aplicación
   const state = {
     currentTenseId: "present-continuous",
-    currentMode: "study", // 'study' | 'practice' | 'custom-exam'
+    currentMode: "study", // 'study' | 'practice'
     currentStructTab: "affirmative",
     practiceIndex: 0,
     practiceScore: 0,
-    practiceQuestions: [], // Banco activo de preguntas
+    practiceQuestions: [],
     isCustomExam: false,
+    isClassExam: false, // Modo examen estricto de clase
+    selectedDifficulty: "weighted", // 'weighted' | 'easy' | 'medium' | 'hard'
+    selectedQuestionCount: 10,
     customExamInfo: {
       topics: [],
       topicsLabel: "",
@@ -22,7 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
     isAnswerChecked: false,
     selectedScramble: [],
     availableScramble: [],
-    selectedQuestionCount: 5,
     userStats: {
       xp: 0,
       streak: 0,
@@ -30,7 +32,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Cargar estadísticas
   function loadStats() {
     const saved = localStorage.getItem("verbflow_stats");
     if (saved) {
@@ -56,13 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (streakEl) streakEl.textContent = `🔥 ${state.userStats.streak || 0}`;
   }
 
-  // Sintetizador de voz nativo en inglés
   function speakEnglish(text, btnElement) {
-    if (!("speechSynthesis" in window)) {
-      alert("Tu navegador no soporta síntesis de voz.");
-      return;
-    }
-
+    if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "en-US";
@@ -86,7 +82,30 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // SISTEMA DE AUTENTICACIÓN Y CABECERA DE USUARIO
+  // CONTROL DE MODO EXAMEN ESTRICTO (ANTI-TRAMPAS)
+  // ========================================================
+  function applyLockdownMode(isLockdown) {
+    state.isClassExam = isLockdown;
+    const banner = document.getElementById("lockdown-exam-banner");
+    const sidebar = document.getElementById("app-sidebar");
+    const modeTabs = document.getElementById("header-mode-tabs");
+    const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+
+    if (isLockdown) {
+      if (banner) banner.style.display = "block";
+      if (sidebar) sidebar.style.display = "none";
+      if (modeTabs) modeTabs.style.display = "none";
+      if (mobileMenuBtn) mobileMenuBtn.style.display = "none";
+    } else {
+      if (banner) banner.style.display = "none";
+      if (sidebar) sidebar.style.display = "flex";
+      if (modeTabs) modeTabs.style.display = "flex";
+      if (mobileMenuBtn) mobileMenuBtn.style.display = "block";
+    }
+  }
+
+  // ========================================================
+  // RENDERIZADO DE CABECERA DE USUARIO
   // ========================================================
   function renderUserHeader() {
     const container = document.getElementById("user-auth-container");
@@ -115,7 +134,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Usuario logeado
     let roleClass = "role-student";
     let roleText = "🎓 Alumno";
 
@@ -143,7 +161,6 @@ document.addEventListener("DOMContentLoaded", () => {
       renderSidebar();
     });
 
-    // Control de campana de notificaciones para TheKeas (Owner)
     if (currentUser.role === "owner") {
       const pendingTeachers = window.AuthManager.getPendingTeachers();
       if (ownerNotifBtn && ownerNotifCount) {
@@ -155,7 +172,6 @@ document.addEventListener("DOMContentLoaded", () => {
       ownerNotifBtn.style.display = "none";
     }
 
-    // Control del botón de Panel Docente (Visible para Teacher y Owner)
     if (currentUser.role === "teacher" || currentUser.role === "owner") {
       if (teacherSuiteBtn) teacherSuiteBtn.style.display = "flex";
     } else if (teacherSuiteBtn) {
@@ -189,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
       sidebarContent.appendChild(catLabel);
 
       items.forEach(tense => {
-        const isCurrent = tense.id === state.currentTenseId && !state.isCustomExam;
+        const isCurrent = tense.id === state.currentTenseId && !state.isCustomExam && !state.isClassExam;
         const isCompleted = state.userStats.completedTenses[tense.id];
 
         const btn = document.createElement("button");
@@ -208,8 +224,13 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
 
         btn.addEventListener("click", () => {
+          if (state.isClassExam) {
+            alert("No puedes abandonar el examen de clase hasta completarlo.");
+            return;
+          }
           state.currentTenseId = tense.id;
           state.isCustomExam = false;
+          state.isClassExam = false;
           state.practiceIndex = 0;
           state.practiceScore = 0;
           state.isAnswerChecked = false;
@@ -237,12 +258,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const titleEl = document.getElementById("header-tense-title");
     const badgeEl = document.getElementById("header-tense-badge");
 
-    if (state.isCustomExam) {
+    if (state.isClassExam) {
+      if (titleEl) {
+        titleEl.innerHTML = `🔒 Examen Oficial de Clase <span style="font-size:0.85rem; font-weight:normal; color:#f87171;">(${state.customExamInfo.classCode})</span>`;
+      }
+      if (badgeEl) {
+        badgeEl.textContent = "Evaluación Calificada (0-100)";
+        badgeEl.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
+        badgeEl.style.color = "#f87171";
+        badgeEl.style.border = "1px solid rgba(239, 68, 68, 0.5)";
+      }
+    } else if (state.isCustomExam) {
       if (titleEl) {
         titleEl.innerHTML = `🎯 Evaluación Personalizada <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">${state.customExamInfo.topicsLabel || ""}</span>`;
       }
       if (badgeEl) {
-        badgeEl.textContent = "Examen Oficial (0-100)";
+        badgeEl.textContent = `Práctica (${state.selectedDifficulty})`;
         badgeEl.style.backgroundColor = "rgba(245, 158, 11, 0.2)";
         badgeEl.style.color = "#fbbf24";
         badgeEl.style.border = "1px solid rgba(245, 158, 11, 0.5)";
@@ -275,6 +306,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // MODO ESTUDIO
   // ========================================================
   function renderStudyMode() {
+    if (state.isClassExam) {
+      alert("Acceso a teoría bloqueado durante el examen de clase.");
+      return;
+    }
+
+    applyLockdownMode(false);
     state.isCustomExam = false;
     const container = document.getElementById("main-view-container");
     const tense = getCurrentTense();
@@ -282,14 +319,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     container.innerHTML = `
       <div class="fade-in">
-        <!-- Banner de Examen Personalizado -->
         <div class="custom-exam-launch-banner">
           <div>
             <h3 style="font-family:var(--font-display); font-size:1.3rem; font-weight:800; color:#fbbf24; margin-bottom:4px;">
               ¿Quieres medir tu nivel y obtener tu boleta de 0 a 100?
             </h3>
             <p style="color:var(--text-secondary); font-size:0.9rem;">
-              Presenta una prueba de este tema individual, selecciona varios o haz un examen global.
+              Presenta una prueba de este tema o de varios, eligiendo tu nivel de dificultad.
             </p>
           </div>
           <button class="custom-exam-launch-btn" id="study-banner-exam-btn">
@@ -297,7 +333,6 @@ document.addEventListener("DOMContentLoaded", () => {
           </button>
         </div>
 
-        <!-- Hero Card con Concepto -->
         <div class="study-hero-card">
           <div class="study-hero-header">
             <div>
@@ -306,7 +341,6 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
 
-          <!-- Línea de tiempo visual -->
           <div class="timeline-container">
             <div class="timeline-title">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -339,7 +373,6 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        <!-- Casos de Uso y Ejemplos con Audio -->
         <div class="study-section">
           <h3 class="section-heading">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
@@ -366,7 +399,6 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        <!-- Fórmulas y Estructuras -->
         <div class="study-section">
           <h3 class="section-heading">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
@@ -388,7 +420,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <div id="structure-content-box"></div>
         </div>
 
-        <!-- Reglas Clave -->
         <div class="study-section">
           <h3 class="section-heading">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
@@ -410,7 +441,6 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        <!-- Palabras Clave -->
         <div class="study-section">
           <h3 class="section-heading">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
@@ -426,7 +456,6 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        <!-- Banner para pasar a la práctica del tema -->
         <div class="go-practice-banner">
           <div>
             <h3 style="font-family:var(--font-display); font-size:1.4rem; font-weight:800; margin-bottom:4px;">
@@ -521,9 +550,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // INICIADORES DE PRÁCTICA (Individual o Examen a Medida)
+  // INICIADORES DE EVALUACIONES
   // ========================================================
   function initSingleTensePractice() {
+    applyLockdownMode(false);
     const tense = getCurrentTense();
     state.isCustomExam = false;
     state.practiceQuestions = [...tense.exercises];
@@ -533,25 +563,58 @@ document.addEventListener("DOMContentLoaded", () => {
     switchMode("practice");
   }
 
-  function startCustomExam(topics, questionCount, classCode = null) {
-    const questions = window.getQuestionsForTopics(topics, questionCount);
-    if (!questions || questions.length === 0) {
-      alert("No se encontraron preguntas para los temas seleccionados.");
-      return;
-    }
-
+  // Inicio de prueba de clase con MODO EXAMEN ESTRICTO (Anti-trampas)
+  function startClassroomExam(classroom) {
+    applyLockdownMode(true);
     state.isCustomExam = true;
+    state.isClassExam = true;
+
+    // Obtener preguntas usando el banco masivo con ponderación exigente
+    const questions = window.QuestionsBank.selectQuestionsWeighted({
+      topics: classroom.selectedTopics,
+      count: classroom.questionCount || 25,
+      difficultyMode: "weighted" // Prioriza medias y difíciles
+    });
+
     state.practiceQuestions = questions;
     state.practiceIndex = 0;
     state.practiceScore = 0;
     state.isAnswerChecked = false;
 
-    // Obtener nombres de los temas seleccionados
+    const topicNames = window.TENSES_DATA.filter(t => classroom.selectedTopics.includes(t.id)).map(t => t.name);
+    state.customExamInfo = {
+      topics: classroom.selectedTopics,
+      topicsLabel: topicNames.join(", "),
+      classCode: classroom.code
+    };
+
+    switchMode("practice");
+    renderHeader();
+  }
+
+  // Inicio de examen personalizado libre
+  function startCustomExam(topics, questionCount, difficulty = "weighted") {
+    applyLockdownMode(false);
+    state.isCustomExam = true;
+    state.isClassExam = false;
+    state.selectedDifficulty = difficulty;
+
+    const questions = window.QuestionsBank.selectQuestionsWeighted({
+      topics: topics,
+      count: questionCount || 10,
+      difficultyMode: difficulty
+    });
+
+    state.practiceQuestions = questions;
+    state.practiceIndex = 0;
+    state.practiceScore = 0;
+    state.isAnswerChecked = false;
+
     const topicNames = window.TENSES_DATA.filter(t => topics.includes(t.id)).map(t => t.name);
     state.customExamInfo = {
       topics: topics,
       topicsLabel: topicNames.join(", "),
-      classCode: classCode
+      classCode: null
     };
 
     switchMode("practice");
@@ -559,7 +622,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // MOTOR DE PRÁCTICA Y EJERCICIOS
+  // MOTOR DE PRÁCTICA
   // ========================================================
   function renderPracticeMode() {
     const container = document.getElementById("main-view-container");
@@ -588,6 +651,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const progressPercent = Math.round((state.practiceIndex / exercises.length) * 100);
 
+    // Etiqueta de dificultad visual
+    let diffBadge = "";
+    if (currentEx.difficulty) {
+      const color = currentEx.difficulty === "easy" ? "#10b981" : currentEx.difficulty === "medium" ? "#f59e0b" : "#f43f5e";
+      const text = currentEx.difficulty === "easy" ? "Fácil" : currentEx.difficulty === "medium" ? "Media" : "Difícil";
+      diffBadge = `<span style="font-size:0.75rem; font-weight:800; color:${color}; border:1px solid ${color}66; padding:2px 8px; border-radius:12px; margin-left:8px;">${text}</span>`;
+    }
+
     container.innerHTML = `
       <div class="practice-container fade-in">
         <div class="practice-header-bar">
@@ -601,9 +672,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         <div class="exercise-card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <span class="exercise-type-tag">
-              ${getExerciseTypeName(currentEx.type)}
-            </span>
+            <div style="display:flex; align-items:center;">
+              <span class="exercise-type-tag">
+                ${getExerciseTypeName(currentEx.type)}
+              </span>
+              ${diffBadge}
+            </div>
             ${currentEx.tenseName ? `<span style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">${currentEx.tenseName}</span>` : ''}
           </div>
 
@@ -621,7 +695,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <p class="feedback-explanation" id="feedback-explanation"></p>
             <div class="feedback-actions">
               <button class="next-question-btn" id="next-question-btn">
-                Siguiente Ejercicio ➔
+                Siguiente Pregunta ➔
               </button>
             </div>
           </div>
@@ -638,7 +712,7 @@ document.addEventListener("DOMContentLoaded", () => {
       case "scramble": return "Ordenar la Oración";
       case "fill-blank": return "Completar la Palabra";
       case "spot-mistake": return "Caza de Errores";
-      default: return "Ejercicio Práctico";
+      default: return "Pregunta de Evaluación";
     }
   }
 
@@ -806,7 +880,7 @@ document.addEventListener("DOMContentLoaded", () => {
       banner.className = "feedback-banner incorrect show";
       titleEl.innerHTML = `
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        Respuesta Incorrecta (¡Así se aprende!)
+        Respuesta Incorrecta
       `;
     }
 
@@ -832,6 +906,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // RESULTADOS DE EVALUACIÓN (CALIFICACIÓN 0 - 100 Y BOLETA)
   // ========================================================
   function renderPracticeResults() {
+    // Restaurar navegación normal tras culminar examen
+    applyLockdownMode(false);
+
     const container = document.getElementById("main-view-container");
     const total = state.practiceQuestions.length;
     const correct = state.practiceScore;
@@ -840,15 +917,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const currentUser = window.AuthManager.getCurrentUser();
     const studentNick = currentUser ? currentUser.nick : "Estudiante";
+    const fullName = currentUser ? (currentUser.fullName || currentUser.nick) : "Estudiante";
+    const grade = currentUser ? (currentUser.grade || "1102") : "1102";
+    const institution = currentUser ? (currentUser.institution || "Promoción Social") : "Promoción Social";
 
-    // Registrar en tiempo real en la base de datos
     const topicsLabel = state.isCustomExam 
       ? state.customExamInfo.topicsLabel 
       : getCurrentTense().name;
 
+    // Registrar en tiempo real en la base de datos
     window.AuthManager.recordSubmission({
       classCode: state.customExamInfo.classCode || (state.isCustomExam ? "PERSONALIZADO" : "PRACTICA_LIBRE"),
       studentNick: studentNick,
+      fullName: fullName,
+      grade: grade,
+      institution: institution,
       score: score100,
       correctCount: correct,
       totalQuestions: total,
@@ -867,15 +950,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusFeedback = score100 >= 80 
       ? "¡Extraordinario dominio! Has demostrado un entendimiento profundo." 
       : score100 >= 60 
-      ? "¡Aprobado con buen desempeño! Vas por excelente camino." 
-      : "No te desanimes: repasa las fórmulas y vuelve a intentarlo.";
+      ? "¡Aprobado con buen desempeño! Felicitaciones." 
+      : "Requiere refuerzo: repasa las fórmulas y vuelve a intentarlo.";
 
     container.innerHTML = `
       <div class="exercise-card results-modal fade-in">
         <div class="results-badge-icon">${badgeIcon}</div>
         <h2 class="results-title">${statusFeedback}</h2>
         
-        <!-- Puntuación Central 0 / 100 -->
         <div style="background:var(--bg-primary); border:2px solid ${score100 >= 60 ? '#10b981' : '#f43f5e'}; border-radius:var(--radius-lg); padding:20px 40px; margin:12px 0;">
           <span style="font-size:0.85rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); font-weight:700;">
             Calificación Obtenida:
@@ -888,7 +970,6 @@ document.addEventListener("DOMContentLoaded", () => {
           </span>
         </div>
 
-        <!-- Métricas de Aciertos y Fallos -->
         <div style="display:flex; gap:16px; margin-bottom:12px;">
           <div class="stat-chip" style="color:#10b981;">✔ Aciertos: <strong>${correct}</strong></div>
           <div class="stat-chip" style="color:#f43f5e;">✘ Fallos: <strong>${incorrect}</strong></div>
@@ -896,10 +977,9 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
 
         <p class="results-feedback-text">
-          Estudiante: <strong>${studentNick}</strong> | Evaluación: <strong>${topicsLabel}</strong>
+          Alumno: <strong>${fullName}</strong> (${studentNick}) | Grado: <strong>${grade}</strong> | ${institution}
         </p>
 
-        <!-- Botones de Acción: Descargar Boleta en PNG y Opciones -->
         <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:16px;">
           <button class="download-cert-btn" id="download-cert-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -909,16 +989,18 @@ document.addEventListener("DOMContentLoaded", () => {
             🔄 Repetir Prueba
           </button>
           <button class="btn-secondary" id="back-study-menu-btn">
-            📖 Volver al Estudio
+            📖 Volver al Menú Principal
           </button>
         </div>
       </div>
     `;
 
-    // Evento de descarga de la boleta de calificación
     document.getElementById("download-cert-btn")?.addEventListener("click", () => {
       window.CertificateGenerator.downloadCertificate({
         studentNick: studentNick,
+        fullName: fullName,
+        grade: grade,
+        institution: institution,
         score: score100,
         correctCount: correct,
         totalQuestions: total,
@@ -939,6 +1021,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function switchMode(newMode) {
+    if (state.isClassExam && newMode === "study") {
+      alert("No puedes acceder a la teoría mientras esté en curso la evaluación de clase.");
+      return;
+    }
     state.currentMode = newMode;
     renderHeader();
     if (newMode === "study") {
@@ -961,7 +1047,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeAuthModalBtn = document.getElementById("close-auth-modal");
   const tabLoginBtn = document.getElementById("tab-login-btn");
   const tabRegisterBtn = document.getElementById("tab-register-btn");
-  const roleSelectGroup = document.getElementById("role-select-group");
+  const registerFieldsGroup = document.getElementById("register-fields-group");
+  const authRoleSelect = document.getElementById("auth-role");
+  const studentGradeGroup = document.getElementById("student-grade-group");
+  const teacherIdcardGroup = document.getElementById("teacher-idcard-group");
   const authSubmitBtn = document.getElementById("auth-submit-btn");
   const authErrorMsg = document.getElementById("auth-error-msg");
   const authSuccessMsg = document.getElementById("auth-success-msg");
@@ -981,19 +1070,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isRegisterMode) {
       tabRegisterBtn.classList.add("active");
       tabLoginBtn.classList.remove("active");
-      roleSelectGroup.style.display = "flex";
+      registerFieldsGroup.style.display = "flex";
       authSubmitBtn.textContent = "Crear Cuenta";
       document.getElementById("auth-modal-title").textContent = "Registrar Nueva Cuenta";
     } else {
       tabLoginBtn.classList.add("active");
       tabRegisterBtn.classList.remove("active");
-      roleSelectGroup.style.display = "none";
+      registerFieldsGroup.style.display = "none";
       authSubmitBtn.textContent = "Iniciar Sesión";
       document.getElementById("auth-modal-title").textContent = "Iniciar Sesión en VerbFlow";
     }
     authErrorMsg.style.display = "none";
     authSuccessMsg.style.display = "none";
   }
+
+  authRoleSelect?.addEventListener("change", (e) => {
+    if (e.target.value === "teacher") {
+      studentGradeGroup.style.display = "none";
+      teacherIdcardGroup.style.display = "flex";
+    } else {
+      studentGradeGroup.style.display = "flex";
+      teacherIdcardGroup.style.display = "none";
+    }
+  });
 
   tabLoginBtn?.addEventListener("click", () => {
     isRegisterMode = false;
@@ -1013,13 +1112,26 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const nick = document.getElementById("auth-nick").value.trim();
     const password = document.getElementById("auth-password").value.trim();
-    const role = document.getElementById("auth-role").value;
+    const role = authRoleSelect.value;
+    const fullName = document.getElementById("auth-fullname").value.trim();
+    const institution = document.getElementById("auth-institution").value.trim();
+    const grade = document.getElementById("auth-grade").value.trim();
+    const idCard = document.getElementById("auth-idcard").value.trim();
 
     authErrorMsg.style.display = "none";
     authSuccessMsg.style.display = "none";
 
     if (isRegisterMode) {
-      const res = window.AuthManager.register(nick, password, role);
+      const res = window.AuthManager.register({
+        nick,
+        password,
+        role,
+        fullName,
+        institution,
+        grade,
+        idCard
+      });
+
       if (!res.success) {
         authErrorMsg.textContent = res.message;
         authErrorMsg.style.display = "block";
@@ -1031,6 +1143,7 @@ document.addEventListener("DOMContentLoaded", () => {
           authModal.classList.remove("active");
           renderUserHeader();
           renderSidebar();
+          openStudentHubModal(res.user);
         }
       }
     } else {
@@ -1042,8 +1155,55 @@ document.addEventListener("DOMContentLoaded", () => {
         authModal.classList.remove("active");
         renderUserHeader();
         renderSidebar();
+
+        if (res.user.role === "student") {
+          openStudentHubModal(res.user);
+        }
       }
     }
+  });
+
+  // ========================================================
+  // HUB DE BIENVENIDA DEL ALUMNO (POST-LOGIN)
+  // ========================================================
+  const studentHubModal = document.getElementById("student-hub-modal");
+  const closeStudentHubBtn = document.getElementById("close-student-hub");
+  const studentHubName = document.getElementById("student-hub-name");
+
+  function openStudentHubModal(user) {
+    if (!studentHubModal) return;
+    if (studentHubName) studentHubName.textContent = user.fullName || user.nick;
+    studentHubModal.classList.add("active");
+  }
+
+  closeStudentHubBtn?.addEventListener("click", () => {
+    studentHubModal.classList.remove("active");
+  });
+
+  document.getElementById("hub-opt-study")?.addEventListener("click", () => {
+    studentHubModal.classList.remove("active");
+    switchMode("study");
+  });
+
+  document.getElementById("hub-opt-practice")?.addEventListener("click", () => {
+    studentHubModal.classList.remove("active");
+    openCustomExamModal();
+  });
+
+  document.getElementById("hub-btn-start-class")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const code = document.getElementById("hub-input-class-code").value.trim().toUpperCase();
+    if (!code) {
+      alert("Por favor ingresa el código de la clase.");
+      return;
+    }
+    const classroom = window.AuthManager.getClassByCode(code);
+    if (!classroom) {
+      alert("No se encontró ninguna clase con el código '" + code + "'. Verifica con tu profesor.");
+      return;
+    }
+    studentHubModal.classList.remove("active");
+    startClassroomExam(classroom);
   });
 
   // ========================================================
@@ -1086,8 +1246,9 @@ document.addEventListener("DOMContentLoaded", () => {
         ${pending.map(teacher => `
           <div class="class-card-box" style="flex-direction:row; justify-content:space-between; align-items:center;">
             <div>
-              <div style="font-weight:800; font-size:1.1rem; color:#f9fafb;">${teacher.nick}</div>
-              <div style="font-size:0.8rem; color:var(--text-muted);">Solicitado: ${new Date(teacher.createdAt).toLocaleDateString()}</div>
+              <div style="font-weight:800; font-size:1.1rem; color:#f9fafb;">${teacher.fullName || teacher.nick}</div>
+              <div style="font-size:0.85rem; color:#38bdf8;">Nick: ${teacher.nick} | CC: ${teacher.idCard || "N/A"}</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">${teacher.institution || "Promoción Social"}</div>
             </div>
             <div style="display:flex; gap:8px;">
               <button class="fill-submit-btn approve-teacher-btn" data-nick="${teacher.nick}" style="background:#10b981; padding:8px 16px; font-size:0.85rem;">
@@ -1185,7 +1346,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
             <h4 style="font-size:1.15rem; font-weight:800; color:#f9fafb;">${c.name}</h4>
             <div style="font-size:0.85rem; color:var(--text-secondary);">
-              <strong>Profesor:</strong> ${c.teacherNick}
+              <strong>Profesor:</strong> ${c.teacherNick} | ${c.institution || "Promoción Social"}
             </div>
             <div style="font-size:0.82rem; color:var(--text-muted);">
               <strong>Temas:</strong> ${c.selectedTopics.map(id => window.TENSES_DATA.find(t=>t.id===id)?.name || id).join(', ')}
@@ -1217,11 +1378,11 @@ document.addEventListener("DOMContentLoaded", () => {
       <form id="create-class-form">
         <div class="form-group">
           <label class="form-label" for="new-class-name">Nombre de la Clase / Grupo:</label>
-          <input type="text" id="new-class-name" class="form-input" placeholder="Ej: Inglés 3ro A - Evaluación Parcial" required />
+          <input type="text" id="new-class-name" class="form-input" placeholder="Ej: Inglés Grado 1102 - Examen Parcial" required />
         </div>
 
         <div class="form-group">
-          <label class="form-label">Temas a incluir en la prueba:</label>
+          <label class="form-label">Temas a incluir en la evaluación:</label>
           <div class="topics-selector-grid" style="grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));">
             ${window.TENSES_DATA.map(tense => `
               <label class="topic-checkbox-label">
@@ -1233,12 +1394,14 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Cantidad de preguntas para la prueba:</label>
+          <label class="form-label">Cantidad de preguntas para la prueba (Se priorizan preguntas Medias y Difíciles):</label>
           <select id="new-class-qcount" class="form-select">
-            <option value="5">5 Preguntas</option>
-            <option value="10" selected>10 Preguntas</option>
+            <option value="10">10 Preguntas</option>
             <option value="15">15 Preguntas</option>
             <option value="20">20 Preguntas</option>
+            <option value="25" selected>25 Preguntas (Recomendado)</option>
+            <option value="30">30 Preguntas</option>
+            <option value="50">50 Preguntas</option>
           </select>
         </div>
 
@@ -1301,6 +1464,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <thead>
             <tr>
               <th>Alumno</th>
+              <th>Grado</th>
               <th>Clase</th>
               <th>Calificación</th>
               <th>Aciertos</th>
@@ -1313,14 +1477,18 @@ document.addEventListener("DOMContentLoaded", () => {
               const scoreClass = s.score >= 80 ? "high" : s.score >= 60 ? "mid" : "low";
               return `
                 <tr>
-                  <td><strong>${s.studentNick}</strong></td>
+                  <td>
+                    <strong>${s.fullName || s.studentNick}</strong>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">${s.studentNick}</div>
+                  </td>
+                  <td>${s.grade || "1102"}</td>
                   <td><code style="color:#60a5fa;">${s.classCode}</code></td>
                   <td><span class="score-badge-pill ${scoreClass}">${s.score} / 100</span></td>
                   <td>${s.correctCount} / ${s.totalQuestions}</td>
                   <td style="color:var(--text-muted); font-size:0.8rem;">${s.date}</td>
                   <td>
                     <button class="download-sub-cert-btn" data-sub='${JSON.stringify(s)}' style="font-size:0.8rem; color:#10b981; font-weight:700;">
-                      📥 Descargar
+                      📥 Boleta
                     </button>
                   </td>
                 </tr>
@@ -1340,6 +1508,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const s = JSON.parse(btn.dataset.sub);
         window.CertificateGenerator.downloadCertificate({
           studentNick: s.studentNick,
+          fullName: s.fullName || s.studentNick,
+          grade: s.grade || "1102",
+          institution: s.institution || "Promoción Social",
           score: s.score,
           correctCount: s.correctCount,
           totalQuestions: s.totalQuestions,
@@ -1351,7 +1522,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // MODAL DE UNIRSE A CLASE
+  // PRESENTAR PRUEBA DE CLASE (MODAL DIRECTO)
   // ========================================================
   const joinModal = document.getElementById("join-class-modal");
   const openJoinModalBtn = document.getElementById("open-join-class");
@@ -1386,11 +1557,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     joinModal.classList.remove("active");
-    startCustomExam(classroom.selectedTopics, classroom.questionCount, classroom.code);
+    startClassroomExam(classroom);
   });
 
   // ========================================================
-  // CONFIGURADOR DE EXAMEN PERSONALIZADO (A MEDIDA)
+  // CONFIGURADOR DE EXAMEN PERSONALIZADO (CON DIFICULTAD)
   // ========================================================
   const customExamModal = document.getElementById("custom-exam-modal");
   const openCustomExamBtn = document.getElementById("open-custom-exam");
@@ -1449,13 +1620,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Selector de dificultad
+  document.querySelectorAll("#difficulty-pills-container .q-count-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#difficulty-pills-container .q-count-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.selectedDifficulty = btn.dataset.diff;
+    });
+  });
+
   // Selector de cantidad de preguntas
   document.querySelectorAll("#q-count-pills-container .q-count-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll("#q-count-pills-container .q-count-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      const countVal = btn.dataset.count;
-      state.selectedQuestionCount = countVal === "all" ? 999 : parseInt(countVal, 10);
+      state.selectedQuestionCount = parseInt(btn.dataset.count, 10);
     });
   });
 
@@ -1469,7 +1648,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     customExamModal.classList.remove("active");
-    startCustomExam(selectedTopics, state.selectedQuestionCount);
+    startCustomExam(selectedTopics, state.selectedQuestionCount, state.selectedDifficulty);
   });
 
   // ========================================================
@@ -1481,6 +1660,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (cheatBtn && modalOverlay && closeModalBtn) {
     cheatBtn.addEventListener("click", () => {
+      if (state.isClassExam) {
+        alert("Acceso a chuletas y resúmenes bloqueado durante la evaluación.");
+        return;
+      }
       renderCheatSheetModal();
       modalOverlay.classList.add("active");
     });
@@ -1541,7 +1724,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Toggle de sidebar móvil
   const mobileMenuBtn = document.getElementById("mobile-menu-btn");
   const sidebar = document.querySelector(".sidebar");
   if (mobileMenuBtn && sidebar) {
@@ -1562,7 +1744,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const foundClass = window.AuthManager.getClassByCode(classFromUrl);
     if (foundClass) {
       setTimeout(() => {
-        startCustomExam(foundClass.selectedTopics, foundClass.questionCount, foundClass.code);
+        startClassroomExam(foundClass);
       }, 300);
     }
   }

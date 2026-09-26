@@ -1,122 +1,129 @@
 // ========================================================
-// VerbFlow - Certificate & Report Image Generator
-// Genera boletas oficiales de calificación (0-100) en formato
-// imagen PNG de alta resolución usando HTML5 Canvas nativo
+// VerbFlow - Certificate & Report Image Generator (v3.0)
+// Boleta oficial con Institución Educativa (Promoción Social),
+// Grado (ej. 1102), Nombre Completo, Nickname y Calificación (0-100)
 // ========================================================
 
 const CertificateGenerator = (() => {
 
-  function createCertificateCanvas({ studentNick, score, correctCount, totalQuestions, topicsName, classCode }) {
+  function createCertificateCanvas({ studentNick, fullName, grade, institution, score, correctCount, totalQuestions, topicsName, classCode }) {
     const canvas = document.createElement("canvas");
     canvas.width = 1200;
-    canvas.height = 800;
+    canvas.height = 840;
     const ctx = canvas.getContext("2d");
 
-    // 1. Fondo degradado de alta gama (Navy Dark a Midnight Blue)
-    const bgGradient = ctx.createLinearGradient(0, 0, 1200, 800);
+    // 1. Fondo elegante degradado
+    const bgGradient = ctx.createLinearGradient(0, 0, 1200, 840);
     bgGradient.addColorStop(0, "#0b0f19");
     bgGradient.addColorStop(0.5, "#111827");
-    bgGradient.addColorStop(1, "#1f2937");
+    bgGradient.addColorStop(1, "#1e293b");
     ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, 1200, 800);
+    ctx.fillRect(0, 0, 1200, 840);
 
-    // 2. Borde decorativo exterior dorado / cian
+    // 2. Marcos y esquinas doradas
     ctx.lineWidth = 4;
-    ctx.strokeStyle = "rgba(59, 130, 246, 0.4)";
-    ctx.strokeRect(30, 30, 1140, 740);
+    ctx.strokeStyle = "rgba(59, 130, 246, 0.45)";
+    ctx.strokeRect(30, 30, 1140, 780);
 
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.strokeStyle = "rgba(245, 158, 11, 0.5)";
-    ctx.strokeRect(40, 40, 1120, 720);
+    ctx.strokeRect(42, 42, 1116, 756);
 
-    // Esquinas doradas
-    drawCornerAccent(ctx, 40, 40, 1, 1);
-    drawCornerAccent(ctx, 1160, 40, -1, 1);
-    drawCornerAccent(ctx, 40, 760, 1, -1);
-    drawCornerAccent(ctx, 1160, 760, -1, -1);
+    drawCornerAccent(ctx, 42, 42, 1, 1);
+    drawCornerAccent(ctx, 1158, 42, -1, 1);
+    drawCornerAccent(ctx, 42, 798, 1, -1);
+    drawCornerAccent(ctx, 1158, 798, -1, -1);
 
-    // 3. Encabezado de la Academia
+    // 3. Encabezado de la Institución y Academia
     ctx.textAlign = "center";
-    ctx.font = "bold 22px 'Outfit', sans-serif";
-    ctx.fillStyle = "#60a5fa";
-    ctx.letterSpacing = "2px";
-    ctx.fillText("⚡ VERBFLOW ACADEMY — ENGLISH LANGUAGE PROGRAM", 600, 95);
+    ctx.font = "bold 20px 'Outfit', sans-serif";
+    ctx.fillStyle = "#38bdf8";
+    const instText = (institution || "Institución Educativa Promoción Social").toUpperCase();
+    ctx.fillText(`🏛️ ${instText}`, 600, 85);
 
-    ctx.font = "800 38px 'Outfit', sans-serif";
+    ctx.font = "800 34px 'Outfit', sans-serif";
     ctx.fillStyle = "#f9fafb";
-    ctx.fillText("BOLETA OFICIAL DE EVALUACIÓN", 600, 145);
+    ctx.fillText("BOLETA OFICIAL DE EVALUACIÓN DE INGLÉS", 600, 130);
 
-    ctx.font = "16px 'Plus Jakarta Sans', sans-serif";
+    ctx.font = "600 15px 'Plus Jakarta Sans', sans-serif";
     ctx.fillStyle = "#9ca3af";
-    ctx.fillText("Certificación de rendimiento y evaluación de tiempos verbales", 600, 175);
+    ctx.fillText("VerbFlow Academy — Sistema de Verificación y Competencias Lingüísticas", 600, 160);
 
     // Línea divisoria
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
     ctx.beginPath();
-    ctx.moveTo(150, 200);
-    ctx.lineTo(1050, 200);
+    ctx.moveTo(120, 185);
+    ctx.lineTo(1080, 185);
     ctx.stroke();
 
-    // 4. Nombre del Estudiante
-    ctx.font = "18px 'Plus Jakarta Sans', sans-serif";
-    ctx.fillStyle = "#9ca3af";
-    ctx.fillText("Se otorga la presente constancia de calificación a:", 600, 235);
+    // 4. Nombre Completo del Estudiante y Grado
+    ctx.font = "16px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText("Se certifica el desempeño académico y la calificación obtenida por el alumno(a):", 600, 220);
 
-    ctx.font = "bold 44px 'Outfit', sans-serif";
+    // Nombre completo destacado
+    ctx.font = "bold 40px 'Outfit', sans-serif";
     ctx.fillStyle = "#fbbf24";
-    ctx.fillText(studentNick || "Estudiante", 600, 290);
+    const displayName = fullName || studentNick || "Estudiante";
+    ctx.fillText(displayName, 600, 270);
 
-    // 5. Círculo / Tarjeta de Calificación Central (Escala 0 - 100)
+    // Grado y Nick
+    ctx.font = "600 17px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#cbd5e1";
+    const gradeStr = grade ? `Grado: ${grade}` : "Grado: 1102";
+    const nickStr = studentNick ? ` (Nick: ${studentNick})` : "";
+    ctx.fillText(`${gradeStr}${nickStr}`, 600, 305);
+
+    // 5. Círculo / Tarjeta Central de Calificación 0 a 100
     const scoreColor = score >= 80 ? "#10b981" : score >= 60 ? "#f59e0b" : "#f43f5e";
-    const statusText = score >= 80 ? "¡EXCELENTE DOMINIO!" : score >= 60 ? "APROBADO" : "NECESITA REFUERZO";
+    const statusText = score >= 80 ? "¡EXCELENTE DOMINIO!" : score >= 60 ? "APROBADO CON ÉXITO" : "REQUIERE REFUERZO";
 
-    // Fondo tarjeta de puntuación
-    drawRoundedRect(ctx, 400, 320, 400, 150, 20, "rgba(255, 255, 255, 0.04)", scoreColor);
+    drawRoundedRect(ctx, 380, 340, 440, 155, 20, "rgba(255, 255, 255, 0.04)", scoreColor);
 
-    ctx.font = "bold 16px 'Plus Jakarta Sans', sans-serif";
-    ctx.fillStyle = "#9ca3af";
-    ctx.fillText("CALIFICACIÓN OBTENIDA", 600, 355);
+    ctx.font = "bold 15px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText("CALIFICACIÓN OBTENIDA", 600, 375);
 
-    ctx.font = "800 68px 'Outfit', sans-serif";
+    ctx.font = "800 70px 'Outfit', sans-serif";
     ctx.fillStyle = scoreColor;
-    ctx.fillText(`${score}`, 575, 425);
+    ctx.fillText(`${score}`, 570, 445);
 
     ctx.font = "bold 26px 'Outfit', sans-serif";
     ctx.fillStyle = "#9ca3af";
-    ctx.fillText("/ 100", 670, 420);
+    ctx.fillText("/ 100", 670, 440);
 
     ctx.font = "bold 16px 'Plus Jakarta Sans', sans-serif";
     ctx.fillStyle = scoreColor;
-    ctx.fillText(statusText, 600, 455);
+    ctx.fillText(statusText, 600, 478);
 
     // 6. Tarjetas de Métricas Estadísticas
     const incorrect = Math.max(0, totalQuestions - correctCount);
-    drawStatCard(ctx, 160, 500, 200, 95, "Total Preguntas", `${totalQuestions}`, "#60a5fa");
-    drawStatCard(ctx, 390, 500, 200, 95, "Aciertos", `${correctCount} ✔`, "#10b981");
-    drawStatCard(ctx, 620, 500, 200, 95, "Fallos", `${incorrect} ✘`, "#f43f5e");
-    drawStatCard(ctx, 850, 500, 200, 95, "Efectividad", `${score}%`, "#fbbf24");
+    drawStatCard(ctx, 140, 525, 210, 95, "Total Preguntas", `${totalQuestions}`, "#60a5fa");
+    drawStatCard(ctx, 380, 525, 210, 95, "Aciertos", `${correctCount} ✔`, "#10b981");
+    drawStatCard(ctx, 620, 525, 210, 95, "Fallos", `${incorrect} ✘`, "#f43f5e");
+    drawStatCard(ctx, 860, 525, 210, 95, "Efectividad", `${score}%`, "#fbbf24");
 
-    // 7. Información contextual (Temas y Clase)
+    // 7. Información contextual
     ctx.textAlign = "left";
     ctx.font = "bold 15px 'Plus Jakarta Sans', sans-serif";
-    ctx.fillStyle = "#9ca3af";
-    ctx.fillText("Temas evaluados:", 160, 640);
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText("Temas evaluados:", 140, 665);
 
     ctx.font = "15px 'Plus Jakarta Sans', sans-serif";
-    ctx.fillStyle = "#f3f4f6";
+    ctx.fillStyle = "#f8fafc";
     const truncatedTopics = (topicsName || "Evaluación General").length > 70 
       ? (topicsName || "").substring(0, 67) + "..." 
       : (topicsName || "Evaluación General");
-    ctx.fillText(truncatedTopics, 300, 640);
+    ctx.fillText(truncatedTopics, 280, 665);
 
     if (classCode) {
       ctx.font = "bold 15px 'Plus Jakarta Sans', sans-serif";
-      ctx.fillStyle = "#9ca3af";
-      ctx.fillText("Código de Clase:", 160, 670);
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText("Código de Clase:", 140, 695);
 
       ctx.font = "15px 'Plus Jakarta Sans', sans-serif";
-      ctx.fillStyle = "#60a5fa";
-      ctx.fillText(classCode, 300, 670);
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillText(classCode, 280, 695);
     }
 
     // 8. Sello de Validación y Fecha
@@ -128,22 +135,22 @@ const CertificateGenerator = (() => {
 
     ctx.textAlign = "right";
     ctx.font = "14px 'Plus Jakarta Sans', sans-serif";
-    ctx.fillStyle = "#9ca3af";
-    ctx.fillText(`Fecha de emisión: ${dateStr}`, 1040, 670);
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText(`Fecha de emisión: ${dateStr}`, 1060, 695);
 
     ctx.font = "bold 13px 'Plus Jakarta Sans', sans-serif";
     ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-    const hash = "VF-" + Math.abs((studentNick + score + Date.now()).split("").reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(16).toUpperCase();
-    ctx.fillText(`ID de Verificación: ${hash}`, 1040, 695);
+    const hash = "VF-" + Math.abs((displayName + score + Date.now()).split("").reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(16).toUpperCase();
+    ctx.fillText(`ID de Verificación: ${hash}`, 1060, 720);
 
     return canvas;
   }
 
   function drawCornerAccent(ctx, x, y, dx, dy) {
     ctx.beginPath();
-    ctx.moveTo(x, y + 25 * dy);
+    ctx.moveTo(x, y + 26 * dy);
     ctx.lineTo(x, y);
-    ctx.lineTo(x + 25 * dx, y);
+    ctx.lineTo(x + 26 * dx, y);
     ctx.strokeStyle = "#fbbf24";
     ctx.lineWidth = 3;
     ctx.stroke();
@@ -174,7 +181,7 @@ const CertificateGenerator = (() => {
     drawRoundedRect(ctx, x, y, w, h, 12, "rgba(255, 255, 255, 0.03)", "rgba(255, 255, 255, 0.08)");
     ctx.textAlign = "center";
     ctx.font = "14px 'Plus Jakarta Sans', sans-serif";
-    ctx.fillStyle = "#9ca3af";
+    ctx.fillStyle = "#94a3b8";
     ctx.fillText(label, x + w / 2, y + 34);
 
     ctx.font = "bold 26px 'Outfit', sans-serif";
@@ -182,12 +189,11 @@ const CertificateGenerator = (() => {
     ctx.fillText(value, x + w / 2, y + 72);
   }
 
-  // Descarga directa del archivo .PNG en el dispositivo
   function downloadCertificate(data) {
     const canvas = createCertificateCanvas(data);
     const link = document.createElement("a");
-    const safeNick = (data.studentNick || "Estudiante").replace(/[^a-z0-9]/gi, "_");
-    link.download = `VerbFlow_Calificacion_${safeNick}_${data.score}pts.png`;
+    const safeName = (data.fullName || data.studentNick || "Estudiante").replace(/[^a-z0-9]/gi, "_");
+    link.download = `VerbFlow_${safeName}_${data.score}pts.png`;
     link.href = canvas.toDataURL("image/png");
     document.body.appendChild(link);
     link.click();
@@ -200,7 +206,6 @@ const CertificateGenerator = (() => {
   };
 })();
 
-// Exportar globalmente
 if (typeof window !== "undefined") {
   window.CertificateGenerator = CertificateGenerator;
 }

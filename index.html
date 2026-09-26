@@ -20,7 +20,7 @@
     <!-- ==========================================
          SIDEBAR: Navegación de Tiempos Verbales
          ========================================== -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="app-sidebar">
       <div class="brand">
         <div class="brand-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -49,7 +49,7 @@
             <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
             <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
           </svg>
-          🏫 Unirse a una Clase
+          🏫 Presentar Prueba de Clase
         </button>
       </div>
 
@@ -72,6 +72,11 @@
          MAIN WRAPPER: Encabezado y Contenido
          ========================================== -->
     <main class="main-wrapper">
+      <!-- Banner de Modo Examen Estricto (Visible solo durante examen de clase) -->
+      <div id="lockdown-exam-banner" style="display:none; background: linear-gradient(90deg, #b91c1c, #991b1b); color: white; padding: 10px 24px; font-size: 0.9rem; font-weight: 700; text-align: center; letter-spacing: 0.5px;">
+        🔒 MODO EXAMEN DE CLASE ACTIVO — Acceso a teoría y fórmulas bloqueado durante la evaluación.
+      </div>
+
       <!-- Header Superior -->
       <header class="top-header">
         <div class="header-left">
@@ -91,16 +96,16 @@
           <span class="header-badge" id="header-tense-badge">Básico</span>
         </div>
 
-        <!-- Selector de Pestañas: Estudio vs Práctica -->
-        <div class="mode-tabs">
-          <button class="mode-tab-btn active" data-mode="study">
+        <!-- Selector de Pestañas: Estudio vs Práctica (Oculto en Modo Examen) -->
+        <div class="mode-tabs" id="header-mode-tabs">
+          <button class="mode-tab-btn active" data-mode="study" id="tab-btn-study">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
               <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
             </svg>
             Estudio
           </button>
-          <button class="mode-tab-btn" data-mode="practice">
+          <button class="mode-tab-btn" data-mode="practice" id="tab-btn-practice">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"></circle>
               <polygon points="10 8 16 12 10 16 10 8"></polygon>
@@ -131,9 +136,7 @@
           </button>
 
           <!-- Caja de sesión de usuario -->
-          <div class="user-auth-box" id="user-auth-container">
-            <!-- Inyectado dinámicamente: botón 'Iniciar Sesión' o Badge con Rol -->
-          </div>
+          <div class="user-auth-box" id="user-auth-container"></div>
 
           <div class="stat-chip" title="Experiencia ganada">
             <span style="color:#fbbf24;">⚡</span>
@@ -168,10 +171,10 @@
   </div>
 
   <!-- ==========================================
-       MODAL 1: AUTENTICACIÓN (LOGIN / REGISTRO POR NICK)
+       MODAL 1: AUTENTICACIÓN (LOGIN / REGISTRO POR NICKNAME)
        ========================================== -->
   <div class="modal-overlay" id="auth-modal">
-    <div class="modal-dialog" style="max-width: 440px;">
+    <div class="modal-dialog" style="max-width: 480px;">
       <div class="modal-header">
         <h3 id="auth-modal-title" style="font-family:var(--font-display); font-size:1.3rem; font-weight:800;">
           Acceso a VerbFlow
@@ -185,32 +188,58 @@
         </div>
 
         <form id="auth-form">
+          <!-- Campo Nickname (Placeholder exacto 'Nickname') -->
           <div class="form-group">
-            <label class="form-label" for="auth-nick">Nick o Nombre de Usuario:</label>
-            <input type="text" id="auth-nick" class="form-input" placeholder="Ej: Kevin, Alex, TheKeas..." required autocomplete="username" />
+            <label class="form-label" for="auth-nick">Nickname:</label>
+            <input type="text" id="auth-nick" class="form-input" placeholder="Nickname" required autocomplete="username" />
           </div>
 
           <div class="form-group">
             <label class="form-label" for="auth-password">Contraseña:</label>
-            <input type="password" id="auth-password" class="form-input" placeholder="Tu clave de acceso" required autocomplete="current-password" />
+            <input type="password" id="auth-password" class="form-input" placeholder="Tu contraseña" required autocomplete="current-password" />
           </div>
 
-          <!-- Campo solo visible en registro -->
-          <div class="form-group" id="role-select-group" style="display:none;">
-            <label class="form-label" for="auth-role">Tipo de Cuenta / Rango:</label>
-            <select id="auth-role" class="form-select">
-              <option value="student">🎓 Alumno (Presentar pruebas)</option>
-              <option value="teacher">👨‍🏫 Profesor / Teacher (Crear clases y exámenes)</option>
-            </select>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">
+          <!-- Campos adicionales visibles solo en el registro -->
+          <div id="register-fields-group" style="display:none; flex-direction:column; gap:12px;">
+            <div class="form-group">
+              <label class="form-label" for="auth-role">Tipo de Cuenta / Rango:</label>
+              <select id="auth-role" class="form-select">
+                <option value="student">🎓 Alumno (Presentar pruebas de clase y prácticas)</option>
+                <option value="teacher">👨‍🏫 Profesor / Teacher (Crear clases y evaluaciones)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="auth-fullname">Nombre Completo (como en tu documento):</label>
+              <input type="text" id="auth-fullname" class="form-input" placeholder="Ej: Kevin Eduardo Argüello..." />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="auth-institution">Institución Educativa:</label>
+              <input type="text" id="auth-institution" class="form-input" value="Promoción Social" required />
+            </div>
+
+            <!-- Campo específico para Alumno -->
+            <div class="form-group" id="student-grade-group">
+              <label class="form-label" for="auth-grade">Grado en el que cursas:</label>
+              <input type="text" id="auth-grade" class="form-input" placeholder="Ej: 1102" value="1102" />
+            </div>
+
+            <!-- Campo específico para Profesor -->
+            <div class="form-group" id="teacher-idcard-group" style="display:none;">
+              <label class="form-label" for="auth-idcard">Cédula de Ciudadanía / Documento:</label>
+              <input type="text" id="auth-idcard" class="form-input" placeholder="Número de identificación" />
+            </div>
+
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
               *Las cuentas de Teacher requieren autorización previa del Owner (TheKeas) antes de activarse.
             </p>
           </div>
 
-          <div id="auth-error-msg" style="color:#f43f5e; font-size:0.85rem; margin-bottom:12px; display:none;"></div>
-          <div id="auth-success-msg" style="color:#10b981; font-size:0.85rem; margin-bottom:12px; display:none;"></div>
+          <div id="auth-error-msg" style="color:#f43f5e; font-size:0.85rem; margin-top:10px; margin-bottom:12px; display:none;"></div>
+          <div id="auth-success-msg" style="color:#10b981; font-size:0.85rem; margin-top:10px; margin-bottom:12px; display:none;"></div>
 
-          <button type="submit" class="fill-submit-btn" id="auth-submit-btn" style="width:100%; justify-content:center;">
+          <button type="submit" class="fill-submit-btn" id="auth-submit-btn" style="width:100%; justify-content:center; margin-top:10px;">
             Iniciar Sesión
           </button>
         </form>
@@ -219,7 +248,73 @@
   </div>
 
   <!-- ==========================================
-       MODAL 2: PANEL DE APROBACIÓN OWNER (THEKEAS)
+       MODAL 2: HUB DE BIENVENIDA DEL ALUMNO (POST-LOGIN)
+       ========================================== -->
+  <div class="modal-overlay" id="student-hub-modal">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 style="font-family:var(--font-display); font-size:1.35rem; font-weight:800; color:#38bdf8;">
+          👋 ¡Bienvenido a VerbFlow, <span id="student-hub-name">Estudiante</span>!
+        </h3>
+        <button class="modal-close-btn" id="close-student-hub">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text-secondary); margin-bottom:20px; font-size:0.95rem;">
+          ¿Qué deseas realizar hoy? Selecciona una de las siguientes opciones:
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <!-- Opción 1: Estudiar -->
+          <div class="use-case-card" id="hub-opt-study" style="cursor:pointer; border-left:4px solid #3b82f6;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div style="font-size:2rem;">📖</div>
+              <div>
+                <h4 style="font-size:1.15rem; font-weight:800; color:#60a5fa; margin-bottom:3px;">1. Estudiar</h4>
+                <p style="font-size:0.88rem; color:var(--text-secondary);">
+                  Aprende la teoría, reglas de ortografía, líneas de tiempo y escucha la pronunciación nativa de cada tema.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Opción 2: Practicar -->
+          <div class="use-case-card" id="hub-opt-practice" style="cursor:pointer; border-left:4px solid #f59e0b;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div style="font-size:2rem;">🎯</div>
+              <div>
+                <h4 style="font-size:1.15rem; font-weight:800; color:#fbbf24; margin-bottom:3px;">2. Practicar a tu Ritmo</h4>
+                <p style="font-size:0.88rem; color:var(--text-secondary);">
+                  Haz pruebas libres por tu cuenta: elige el tema, la cantidad de preguntas y la dificultad (Fácil, Media, Difícil).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Opción 3: Presentar Prueba de Clase -->
+          <div class="use-case-card" id="hub-opt-class-exam" style="cursor:pointer; border-left:4px solid #06b6d4;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div style="font-size:2rem;">🏫</div>
+              <div style="flex:1;">
+                <h4 style="font-size:1.15rem; font-weight:800; color:#22d3ee; margin-bottom:3px;">3. Presentar Prueba de Clase</h4>
+                <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:10px;">
+                  Ingresa el código que te dio tu profesor para presentar tu examen oficial.
+                </p>
+                <div style="display:flex; gap:10px;" id="hub-class-code-row" onclick="event.stopPropagation();">
+                  <input type="text" id="hub-input-class-code" class="form-input" placeholder="Código (ej: VF-4821)" style="text-transform:uppercase; font-family:monospace; font-weight:700; width:160px; padding:8px 12px;" />
+                  <button class="fill-submit-btn" id="hub-btn-start-class" style="padding:8px 16px; font-size:0.88rem;">
+                    Iniciar Examen 🚀
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 3: PANEL DE APROBACIÓN OWNER (THEKEAS)
        ========================================== -->
   <div class="modal-overlay" id="owner-modal">
     <div class="modal-dialog" style="max-width: 600px;">
@@ -236,7 +331,7 @@
   </div>
 
   <!-- ==========================================
-       MODAL 3: PANEL DOCENTE (TEACHER SUITE)
+       MODAL 4: PANEL DOCENTE (TEACHER SUITE)
        ========================================== -->
   <div class="modal-overlay" id="teacher-modal">
     <div class="modal-dialog" style="max-width: 780px;">
@@ -261,37 +356,37 @@
   </div>
 
   <!-- ==========================================
-       MODAL 4: UNIRSE A UNA CLASE
+       MODAL 5: UNIRSE A CLASE DIRECTA
        ========================================== -->
   <div class="modal-overlay" id="join-class-modal">
     <div class="modal-dialog" style="max-width: 440px;">
       <div class="modal-header">
         <h3 style="font-family:var(--font-display); font-size:1.25rem; font-weight:800; color:#22d3ee; display:flex; align-items:center; gap:8px;">
-          🏫 Unirse a la Clase de tu Profesor
+          🏫 Presentar Prueba de Clase
         </h3>
         <button class="modal-close-btn" id="close-join-modal">&times;</button>
       </div>
       <div class="modal-body">
         <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:14px;">
-          Ingresa el código proporcionado por tu profesor (ej: <code>VF-4821</code>) para cargar la evaluación designada.
+          Ingresa el código proporcionado por tu profesor (ej: <code>VF-4821</code>) para arrancar tu evaluación oficial.
         </p>
         <div class="form-group">
-          <label class="form-label" for="join-class-code">Código de Clase:</label>
-          <input type="text" id="join-class-code" class="form-input" placeholder="VF-XXXX" style="font-family:monospace; font-size:1.1rem; text-transform:uppercase; font-weight:700;" />
+          <label class="form-label" for="join-class-code">Código de la Clase:</label>
+          <input type="text" id="join-class-code" class="form-input" placeholder="VF-XXXX" style="font-family:monospace; font-size:1.2rem; text-transform:uppercase; font-weight:700;" />
         </div>
         <div id="join-error-msg" style="color:#f43f5e; font-size:0.85rem; margin-bottom:10px; display:none;"></div>
         <button class="fill-submit-btn" id="submit-join-btn" style="width:100%; justify-content:center;">
-          Ingresar y Presentar Prueba
+          Comenzar Evaluación Oficial 🚀
         </button>
       </div>
     </div>
   </div>
 
   <!-- ==========================================
-       MODAL 5: CONFIGURADOR DE EXAMEN PERSONALIZADO
+       MODAL 6: CONFIGURADOR DE EXAMEN PERSONALIZADO (CON DIFICULTAD)
        ========================================== -->
   <div class="modal-overlay" id="custom-exam-modal">
-    <div class="modal-dialog" style="max-width: 680px;">
+    <div class="modal-dialog" style="max-width: 700px;">
       <div class="modal-header">
         <h3 style="font-family:var(--font-display); font-size:1.3rem; font-weight:800; color:#fbbf24; display:flex; align-items:center; gap:8px;">
           🎯 Configurar Evaluación Personalizada
@@ -300,11 +395,11 @@
       </div>
       <div class="modal-body">
         <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:10px;">
-          Escoge si deseas presentar la prueba de <strong>un solo tema</strong> o <strong>combinar varios</strong>, y selecciona cuántas preguntas responder:
+          Selecciona el tema o temas a evaluar, la cantidad de preguntas y la dificultad deseada:
         </p>
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
-          <span class="form-label">Selecciona los temas a evaluar:</span>
+          <span class="form-label">Temas a incluir en la prueba:</span>
           <div>
             <button id="select-all-topics-btn" style="font-size:0.8rem; color:#60a5fa; margin-right:10px;">Seleccionar Todos</button>
             <button id="deselect-all-topics-btn" style="font-size:0.8rem; color:var(--text-muted);">Deseleccionar</button>
@@ -312,17 +407,29 @@
         </div>
 
         <div class="topics-selector-grid" id="custom-exam-topics-grid">
-          <!-- Checkboxes de temas inyectados dinámicamente -->
+          <!-- Checkboxes inyectados dinámicamente -->
         </div>
 
+        <!-- Selector de Dificultad -->
         <div style="margin-top:16px;">
+          <span class="form-label">Dificultad de las preguntas:</span>
+          <div class="question-count-pills" id="difficulty-pills-container">
+            <button class="q-count-btn active" data-diff="weighted">⚡ Ponderada (Medias & Difíciles)</button>
+            <button class="q-count-btn" data-diff="easy">🟢 Fáciles</button>
+            <button class="q-count-btn" data-diff="medium">🟡 Medias</button>
+            <button class="q-count-btn" data-diff="hard">🔴 Difíciles</button>
+          </div>
+        </div>
+
+        <!-- Selector de Cantidad de Preguntas -->
+        <div style="margin-top:12px;">
           <span class="form-label">Cantidad de preguntas a presentar:</span>
           <div class="question-count-pills" id="q-count-pills-container">
-            <button class="q-count-btn active" data-count="5">5 Preguntas</button>
-            <button class="q-count-btn" data-count="10">10 Preguntas</button>
+            <button class="q-count-btn active" data-count="10">10 Preguntas</button>
             <button class="q-count-btn" data-count="15">15 Preguntas</button>
             <button class="q-count-btn" data-count="20">20 Preguntas</button>
-            <button class="q-count-btn" data-count="all">Todas las disponibles</button>
+            <button class="q-count-btn" data-count="25">25 Preguntas</button>
+            <button class="q-count-btn" data-count="50">50 Preguntas</button>
           </div>
         </div>
 
@@ -336,7 +443,7 @@
   </div>
 
   <!-- ==========================================
-       MODAL 6: CHULETA DE FÓRMULAS
+       MODAL 7: CHULETA DE FÓRMULAS
        ========================================== -->
   <div class="modal-overlay" id="cheat-sheet-modal">
     <div class="modal-dialog">
@@ -355,6 +462,7 @@
   <!-- Scripts en orden de dependencia -->
   <script src="auth-manager.js"></script>
   <script src="certificate-generator.js"></script>
+  <script src="questions-bank.js"></script>
   <script src="tenses-data.js"></script>
   <script src="app.js"></script>
 </body>
