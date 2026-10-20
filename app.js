@@ -324,8 +324,94 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================================
-  // MODO ESTUDIO
+  // MODO ESTUDIO & GLITCH CHALLENGE (GOOGLE STITCH DESIGN)
   // ========================================================
+  function getGlitchChallenge(tenseId) {
+    const glitches = {
+      "present-continuous": {
+        prompt: `Look! The robotics team ______ (test) their new autonomous drone.`,
+        options: [
+          { text: "is testing", isCorrect: true },
+          { text: "are testing", isCorrect: false },
+          { text: "tested", isCorrect: false },
+          { text: "tests", isCorrect: false }
+        ],
+        explanation: "'The robotics team' funciona como sujeto singular colectivo acompañado de la pista 'Look!', exigiendo Present Continuous: 'is testing'."
+      },
+      "past-continuous": {
+        prompt: `While we ______ (drive) home, the storm suddenly started.`,
+        options: [
+          { text: "were driving", isCorrect: true },
+          { text: "was driving", isCorrect: false },
+          { text: "drove", isCorrect: false },
+          { text: "are driving", isCorrect: false }
+        ],
+        explanation: "Con el sujeto 'we' y una acción en desarrollo interrumpida por 'While', se usa 'were driving'."
+      },
+      "future-continuous": {
+        prompt: `At this exact time tomorrow, I ______ (fly) to London.`,
+        options: [
+          { text: "will be flying", isCorrect: true },
+          { text: "will fly", isCorrect: false },
+          { text: "am flying", isCorrect: false },
+          { text: "fly", isCorrect: false }
+        ],
+        explanation: "'At this exact time tomorrow' indica una acción que estará en progreso en el futuro: 'will be flying'."
+      },
+      "present-simple": {
+        prompt: `My brother ______ (watch) documentaries every single evening.`,
+        options: [
+          { text: "watches", isCorrect: true },
+          { text: "watch", isCorrect: false },
+          { text: "is watching", isCorrect: false },
+          { text: "watched", isCorrect: false }
+        ],
+        explanation: "Con 3ra persona singular (He / My brother) y rutina ('every evening'), se añade -es: 'watches'."
+      },
+      "past-simple": {
+        prompt: `They ______ (not / go) to school yesterday because of the heavy rain.`,
+        options: [
+          { text: "didn't go", isCorrect: true },
+          { text: "didn't went", isCorrect: false },
+          { text: "don't go", isCorrect: false },
+          { text: "not went", isCorrect: false }
+        ],
+        explanation: "En pasado simple negativo usamos el auxiliar 'didn't' + verbo en forma base: 'didn't go'."
+      },
+      "future-simple": {
+        prompt: `Don't worry about the heavy bags, I ______ (help) you carry them!`,
+        options: [
+          { text: "will help", isCorrect: true },
+          { text: "am helping", isCorrect: false },
+          { text: "helped", isCorrect: false },
+          { text: "help", isCorrect: false }
+        ],
+        explanation: "Para decisiones espontáneas u ofrecimientos en el momento, se utiliza 'will help'."
+      },
+      "present-perfect": {
+        prompt: `Lucas has already ______ (finish) his chemistry project.`,
+        options: [
+          { text: "finished", isCorrect: true },
+          { text: "finishing", isCorrect: false },
+          { text: "finish", isCorrect: false },
+          { text: "finishes", isCorrect: false }
+        ],
+        explanation: "El Present Perfect requiere el auxiliar 'has' + participio pasado (-ed): 'finished'."
+      }
+    };
+
+    return glitches[tenseId] || {
+      prompt: `Identify the correct syntax for this sentence.`,
+      options: [
+        { text: "is practicing", isCorrect: true },
+        { text: "practiced", isCorrect: false },
+        { text: "practice", isCorrect: false },
+        { text: "practices", isCorrect: false }
+      ],
+      explanation: "Asegúrate de coordinar sujeto y auxiliar según el tiempo verbal correspondiente."
+    };
+  }
+
   function renderStudyMode() {
     if (state.isClassExam) {
       alert("Acceso a teoría bloqueado durante el examen de clase.");
@@ -338,92 +424,179 @@ document.addEventListener("DOMContentLoaded", () => {
     const tense = getCurrentTense();
     const study = tense.study;
 
+    // Generar pregunta interactiva de "Fix the Glitch!" basada en el tiempo actual
+    const glitchQuestion = getGlitchChallenge(tense.id);
+
     container.innerHTML = `
       <div class="fade-in">
-        <div class="custom-exam-launch-banner">
+        <!-- Stitch Breadcrumbs -->
+        <div class="stitch-breadcrumbs">
+          <span style="display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px; color:#818cf8;">school</span> VerbFlow Academy</span>
+          <span class="material-symbols-outlined" style="font-size:14px;">chevron_right</span>
+          <span>Tiempos Verbales</span>
+          <span class="material-symbols-outlined" style="font-size:14px;">chevron_right</span>
+          <span class="active">${tense.name}</span>
+        </div>
+
+        <!-- Stitch Academy Hero Header -->
+        <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:22px;">
           <div>
-            <h3 style="font-family:var(--font-display); font-size:1.3rem; font-weight:800; color:#fbbf24; margin-bottom:4px;">
-              ¿Quieres medir tu nivel y obtener tu boleta de 0 a 100?
+            <div style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#818cf8; background:rgba(99, 102, 241, 0.15); padding:4px 10px; border-radius:6px; border:1px solid rgba(99, 102, 241, 0.3); margin-bottom:6px;">
+              <span class="material-symbols-outlined" style="font-size:14px;">bolt</span> Concepto Activo • ${tense.badge || 'Básico - Intermedio'}
+            </div>
+            <h1 style="font-family:var(--font-display); font-size:2.3rem; font-weight:800; letter-spacing:-0.02em; margin-bottom:4px; line-height:1.15; background:linear-gradient(90deg, #ffffff, #c7d2fe); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
+              ${tense.name}
+            </h1>
+            <p style="color:var(--text-secondary); font-size:1.05rem;">${study.concept}</p>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <span style="padding:6px 14px; border-radius:10px; background:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.3); font-size:0.82rem; font-weight:700; color:#34d399; display:flex; align-items:center; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px;">verified</span> 84% Dominio Escolar
+            </span>
+            <span style="padding:6px 14px; border-radius:10px; background:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.3); font-size:0.82rem; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px;">local_fire_department</span> Clave en Pruebas Saber 11
+            </span>
+          </div>
+        </div>
+
+        <!-- Banner de Examen Personalizado -->
+        <div class="custom-exam-launch-banner glass-card" style="border:1px solid rgba(245, 158, 11, 0.35);">
+          <div>
+            <h3 style="font-family:var(--font-display); font-size:1.25rem; font-weight:800; color:#fbbf24; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+              <span class="material-symbols-outlined">military_tech</span> ¿Quieres medir tu nivel y obtener tu boleta de 0 a 100?
             </h3>
             <p style="color:var(--text-secondary); font-size:0.9rem;">
-              Presenta una prueba de este tema o de varios, eligiendo tu nivel de dificultad.
+              Presenta una prueba individual de este tema o de varios, eligiendo tu nivel de dificultad.
             </p>
           </div>
-          <button class="custom-exam-launch-btn" id="study-banner-exam-btn">
+          <button class="custom-exam-launch-btn tactile-btn" id="study-banner-exam-btn" style="box-shadow: 0 4px 0 #b45309;">
             🎯 Configurar Examen a Medida
           </button>
         </div>
 
-        <div class="study-hero-card">
-          <div class="study-hero-header">
-            <div>
-              <h2 class="study-title">${tense.name}</h2>
-              <p class="study-subtitle">${study.concept}</p>
+        <!-- Stitch Interactive Timeline Canvas -->
+        <div class="study-hero-card glass-card">
+          <div class="timeline-container" style="background:rgba(11, 15, 25, 0.7); border:1px solid rgba(99, 102, 241, 0.25);">
+            <div class="timeline-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="display:flex; align-items:center; gap:8px; color:#818cf8;">
+                <span class="material-symbols-outlined" style="font-size:20px;">timeline</span>
+                EJE TEMPORAL INTERACTIVO
+              </span>
+              <span style="font-size:0.75rem; color:#34d399; font-weight:700;">● TIEMPO EN DESARROLLO</span>
             </div>
-          </div>
-
-          <div class="timeline-container">
-            <div class="timeline-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              Línea Temporal de la Acción
-            </div>
+            
             <div class="timeline-track">
               <div class="timeline-line"></div>
               
               <div class="timeline-point ${tense.timeline.highlight === 'past' || tense.timeline.highlight === 'past-now' || tense.timeline.highlight === 'all' ? 'active' : ''}">
                 <div class="timeline-node"></div>
-                <span class="timeline-label">Pasado</span>
+                <span class="timeline-label">Pasado (Antes)</span>
                 <span style="font-size:0.75rem; color:var(--text-muted);">${tense.timeline.past}</span>
               </div>
 
               <div class="timeline-point ${tense.timeline.highlight === 'now' || tense.timeline.highlight === 'past-now' || tense.timeline.highlight === 'all' ? 'active' : ''}">
                 <div class="timeline-node"></div>
-                <span class="timeline-label">Presente (Ahora)</span>
-                <span style="font-size:0.75rem; color:var(--text-muted);">${tense.timeline.now}</span>
+                <span class="timeline-label" style="color:#818cf8; font-weight:800;">PRESENTE (AHORA)</span>
+                <span style="font-size:0.75rem; color:#c7d2fe; font-weight:600;">${tense.timeline.now}</span>
               </div>
 
               <div class="timeline-point ${tense.timeline.highlight === 'future' || tense.timeline.highlight === 'all' ? 'active' : ''}">
                 <div class="timeline-node"></div>
-                <span class="timeline-label">Futuro</span>
+                <span class="timeline-label">Futuro (Proyección)</span>
                 <span style="font-size:0.75rem; color:var(--text-muted);">${tense.timeline.future}</span>
               </div>
             </div>
-            <div class="timeline-action-banner">
-              🎯 <strong>Foco:</strong> ${tense.timeline.actionText}
+
+            <div class="timeline-action-banner" style="background:rgba(99, 102, 241, 0.12); border-color:#6366f1; color:#c7d2fe;">
+              🎯 <strong>Foco Gramatical de la Acción:</strong> ${tense.timeline.actionText}
             </div>
           </div>
         </div>
 
+        <!-- Stitch Immersion Audio Drills (Bento Cards) -->
         <div class="study-section">
-          <h3 class="section-heading">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            ¿Cuándo se usa exactamente?
-          </h3>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <h3 class="section-heading" style="margin-bottom:0;">
+              <span class="material-symbols-outlined" style="color:#818cf8;">headphones</span>
+              Entrenamiento Auditivo y Casos Reales
+            </h3>
+            <span style="font-size:0.8rem; font-weight:700; color:#34d399; background:rgba(16, 185, 129, 0.1); padding:4px 10px; border-radius:6px; border:1px solid rgba(16, 185, 129, 0.25);">
+              ${study.whenToUse.length} Muestras con Audio Nativo
+            </span>
+          </div>
+
           <div class="use-cases-grid">
-            ${study.whenToUse.map(item => `
-              <div class="use-case-card">
+            ${study.whenToUse.map((item, idx) => `
+              <div class="use-case-card glass-card">
                 <div>
-                  <h4 class="use-case-title">${item.title}</h4>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:0.75rem; font-weight:800; color:#818cf8; background:rgba(99, 102, 241, 0.12); padding:2px 8px; border-radius:4px;">Caso #${idx + 1}</span>
+                    <span style="font-size:0.72rem; color:var(--text-muted); font-weight:600;">Voz Nativa</span>
+                  </div>
+                  <h4 class="use-case-title" style="color:#ffffff;">${item.title}</h4>
                   <p class="use-case-desc">${item.desc}</p>
                 </div>
-                <div class="example-box">
-                  <div class="example-text-group">
-                    <span class="example-en">${item.example}</span>
-                    <span class="example-es">${item.translation}</span>
+
+                <div class="example-box" style="margin-top:14px;">
+                  <div class="example-text-group" style="flex:1;">
+                    <span class="example-en" style="font-size:1rem; color:#818cf8;">"${item.example}"</span>
+                    <span class="example-es" style="color:var(--text-muted); font-style:italic;">"${item.translation}"</span>
                   </div>
-                  <button class="audio-btn" data-audio="${item.audio}" title="Escuchar pronunciación nativa">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                  <button class="audio-btn tactile-btn" data-audio="${item.audio}" title="Escuchar pronunciación nativa">
+                    <span class="material-symbols-outlined" style="font-size:20px;">volume_up</span>
                   </button>
+                  <div class="waveform-container" title="Onda de sonido">
+                    <div class="wave-bar" style="height:12px;"></div>
+                    <div class="wave-bar accent" style="height:20px;"></div>
+                    <div class="wave-bar" style="height:14px;"></div>
+                    <div class="wave-bar accent" style="height:22px;"></div>
+                    <div class="wave-bar muted" style="height:8px;"></div>
+                  </div>
                 </div>
               </div>
             `).join('')}
           </div>
         </div>
 
+        <!-- Stitch "Fix the Glitch!" Interactive Widget -->
+        <div class="glitch-challenge-card" id="glitch-widget">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="material-symbols-outlined" style="color:#fbbf24; font-size:24px;">extension</span>
+              <h3 style="font-family:var(--font-display); font-size:1.25rem; font-weight:800; color:white; margin:0;">
+                ¡Desafío Rápido: Fix the Glitch!
+              </h3>
+            </div>
+            <span style="background:rgba(245, 158, 11, 0.2); color:#fbbf24; font-size:0.75rem; font-weight:800; padding:4px 10px; border-radius:8px; border:1px solid rgba(245, 158, 11, 0.4);">
+              +50 XP
+            </span>
+          </div>
+          
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:10px;">
+            Pon a prueba tu intuición gramatical antes de pasar a la práctica completa:
+          </p>
+
+          <div style="background:rgba(11, 15, 25, 0.7); border:1px solid rgba(255, 255, 255, 0.08); border-radius:10px; padding:14px 18px; font-size:1.1rem; font-weight:600; color:var(--text-primary); margin-bottom:14px;">
+            ${glitchQuestion.prompt}
+          </div>
+
+          <div class="glitch-options-grid">
+            ${glitchQuestion.options.map((opt, oIdx) => `
+              <button class="glitch-option-btn tactile-btn" data-correct="${opt.isCorrect}" data-explain="${glitchQuestion.explanation}">
+                <span>${opt.text}</span>
+                <span class="material-symbols-outlined" style="font-size:18px; opacity:0.5;">check_circle</span>
+              </button>
+            `).join('')}
+          </div>
+
+          <div id="glitch-feedback-box" style="display:none; margin-top:14px; padding:12px 16px; border-radius:8px; font-size:0.88rem; font-weight:600;"></div>
+        </div>
+
+        <!-- Fórmulas y Estructuras Paso a Paso -->
         <div class="study-section">
           <h3 class="section-heading">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-            Fórmulas y Estructuras Paso a Paso
+            <span class="material-symbols-outlined" style="color:#818cf8;">architecture</span>
+            Arquitectura de Fórmulas y Sintaxis
           </h3>
           
           <div class="structure-cards-tabs">
@@ -441,16 +614,17 @@ document.addEventListener("DOMContentLoaded", () => {
           <div id="structure-content-box"></div>
         </div>
 
+        <!-- Reglas Clave y Errores Típicos -->
         <div class="study-section">
           <h3 class="section-heading">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            Reglas Clave y Errores Típicos
+            <span class="material-symbols-outlined" style="color:#fbbf24;">spellcheck</span>
+            Reglas Clave y Trucos para no fallar
           </h3>
           <div class="rules-container">
             ${study.rules.map(rule => `
-              <div class="rule-box">
+              <div class="rule-box glass-card">
                 <h4>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  <span class="material-symbols-outlined" style="font-size:20px; color:#fbbf24;">lightbulb</span>
                   ${rule.title}
                 </h4>
                 <p>${rule.desc}</p>
@@ -462,14 +636,15 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
+        <!-- Marcadores de Tiempo -->
         <div class="study-section">
           <h3 class="section-heading">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-            Marcadores de Tiempo (Time Markers)
+            <span class="material-symbols-outlined" style="color:#22d3ee;">schedule</span>
+            Marcadores de Tiempo Clave (Time Markers)
           </h3>
           <div class="time-markers-grid">
             ${study.timeMarkers.map(tm => `
-              <div class="time-marker-pill">
+              <div class="time-marker-pill glass-card">
                 <strong>${tm.word}</strong>
                 <span>(${tm.trans})</span>
               </div>
@@ -477,16 +652,17 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
 
-        <div class="go-practice-banner">
+        <!-- Botón 3D Gigante para ir a la Práctica -->
+        <div class="go-practice-banner glass-card" style="border:1px solid rgba(99, 102, 241, 0.4);">
           <div>
-            <h3 style="font-family:var(--font-display); font-size:1.4rem; font-weight:800; margin-bottom:4px;">
-              ¿Listo para practicar este tema?
+            <h3 style="font-family:var(--font-display); font-size:1.45rem; font-weight:800; margin-bottom:4px; color:#ffffff;">
+              ¿Listo para dominar ${tense.name}?
             </h3>
             <p style="color:var(--text-secondary); font-size:0.95rem;">
-              Ejercicios prácticos con retroalimentación inmediata para ${tense.name}.
+              Ejercicios interactivos con retroalimentación inmediata, selección múltiple y ordenamiento.
             </p>
           </div>
-          <button class="go-practice-btn" id="start-practice-btn">
+          <button class="go-practice-btn tactile-btn" id="start-practice-btn" style="padding:16px 32px; font-size:1.05rem;">
             ¡Practicar ${tense.name}! ➔
           </button>
         </div>
@@ -494,6 +670,37 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
 
     renderStructureTab();
+
+    // Glitch event listeners
+    const glitchBox = document.getElementById("glitch-widget");
+    if (glitchBox) {
+      glitchBox.querySelectorAll(".glitch-option-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const isCorrect = btn.dataset.correct === "true";
+          const explanation = btn.dataset.explain;
+          const fb = document.getElementById("glitch-feedback-box");
+          glitchBox.querySelectorAll(".glitch-option-btn").forEach(b => {
+            b.disabled = true;
+            if (b.dataset.correct === "true") b.classList.add("correct");
+            else b.classList.add("wrong");
+          });
+          if (fb) {
+            fb.style.display = "block";
+            if (isCorrect) {
+              fb.style.background = "rgba(16, 185, 129, 0.15)";
+              fb.style.border = "1px solid #10b981";
+              fb.style.color = "#34d399";
+              fb.innerHTML = `🎉 <strong>¡Correcto! (+50 XP)</strong> — ${explanation}`;
+            } else {
+              fb.style.background = "rgba(244, 63, 94, 0.15)";
+              fb.style.border = "1px solid #f43f5e";
+              fb.style.color = "#fb7185";
+              fb.innerHTML = `⚠️ <strong>Respuesta incorrecta</strong> — ${explanation}`;
+            }
+          }
+        });
+      });
+    }
 
     container.querySelectorAll(".audio-btn").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -527,10 +734,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const struct = tense.study.structures[state.currentStructTab];
     if (!struct) return;
 
+    const firstExample = struct.examples && struct.examples[0] ? struct.examples[0] : null;
+
     box.innerHTML = `
-      <div class="formula-card fade-in">
+      <div class="formula-card glass-card fade-in">
         <div class="formula-banner">
-          <div class="formula-text">${struct.formula}</div>
+          <div class="formula-text" style="font-size:1.2rem; color:#818cf8;">${struct.formula}</div>
         </div>
 
         <div class="formula-components-flex">
@@ -542,20 +751,37 @@ document.addEventListener("DOMContentLoaded", () => {
           `).join('')}
         </div>
 
-        <div style="margin-top:20px;">
-          <h5 style="font-size:0.88rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px; font-weight:700;">
-            Ejemplos en contexto con audio:
+        ${firstExample ? `
+          <div class="syntagm-preview-box">
+            <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#818cf8; background:rgba(99, 102, 241, 0.15); padding:3px 8px; border-radius:4px;">
+              Sintagma Vivo Generado:
+            </span>
+            <span style="font-weight:700; color:white;">"${firstExample.text}"</span>
+            <span style="font-size:0.88rem; color:var(--text-muted); font-style:italic;">(${firstExample.translation})</span>
+          </div>
+        ` : ''}
+
+        <div style="margin-top:24px;">
+          <h5 style="font-size:0.88rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; font-weight:700; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:16px; color:#818cf8;">record_voice_over</span>
+            Ejemplos de Oraciones con Audio y Pronunciación:
           </h5>
           <div style="display:flex; flex-direction:column; gap:10px;">
             ${struct.examples.map(ex => `
-              <div class="example-box">
-                <div class="example-text-group">
-                  <span class="example-en">${ex.text}</span>
-                  <span class="example-es">${ex.translation}</span>
+              <div class="example-box glass-card" style="border-left:3px solid var(--primary);">
+                <div class="example-text-group" style="flex:1;">
+                  <span class="example-en" style="font-size:0.98rem; font-weight:700; color:#c7d2fe;">${ex.text}</span>
+                  <span class="example-es" style="font-size:0.85rem; color:var(--text-muted);">${ex.translation}</span>
                 </div>
-                <button class="audio-btn" data-audio="${ex.audio}" title="Escuchar pronunciación">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                <button class="audio-btn tactile-btn" data-audio="${ex.audio}" title="Escuchar pronunciación">
+                  <span class="material-symbols-outlined" style="font-size:18px;">volume_up</span>
                 </button>
+                <div class="waveform-container" title="Onda de audio">
+                  <div class="wave-bar" style="height:10px;"></div>
+                  <div class="wave-bar accent" style="height:18px;"></div>
+                  <div class="wave-bar" style="height:12px;"></div>
+                  <div class="wave-bar muted" style="height:6px;"></div>
+                </div>
               </div>
             `).join('')}
           </div>
