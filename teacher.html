@@ -12,7 +12,7 @@
 </head>
 <body>
 
-  <div class="app-container">
+  <div class="app-container" id="teacher-app-container" style="display:none;">
     <!-- Sidebar del Profesor -->
     <aside class="sidebar">
       <div class="brand">
@@ -102,20 +102,51 @@
     </main>
   </div>
 
-  <script src="auth-manager.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth-service.js"></script>
   <script src="certificate-generator.js"></script>
   <script src="questions-bank.js"></script>
   <script src="tenses-data.js"></script>
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const user = window.AuthManager.getCurrentUser();
+    document.addEventListener("DOMContentLoaded", async () => {
+      const containerRoot = document.getElementById("teacher-app-container");
+      let user = await window.AuthService.getCurrentUserAsync();
 
-      // Verificar que el usuario sea Teacher u Owner
+      // Validación estricta en servidor / JWT: Si no es profesor ni Owner, o está pendiente
       if (!user || (user.role !== "teacher" && user.role !== "owner")) {
-        alert("Debes iniciar sesión con una cuenta de Profesor o de Owner para acceder a este panel.");
-        window.location.href = "index.html";
+        document.body.innerHTML = `
+          <div style="min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0b0f19; color:#f87171; font-family:sans-serif; text-align:center; padding:20px;">
+            <div style="font-size:4rem; margin-bottom:16px;">🛑</div>
+            <h1 style="font-size:2.5rem; font-weight:800; color:#f43f5e; margin-bottom:10px;">403 Forbidden</h1>
+            <p style="font-size:1.1rem; color:#cbd5e1; max-width:480px; margin-bottom:24px;">
+              Acceso Restringido. Este panel es exclusivo para profesores autorizados. Tu sesión no posee los permisos requeridos.
+            </p>
+            <a href="index.html" style="background:#2563eb; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:700;">
+              Volver al Portal Principal
+            </a>
+          </div>
+        `;
         return;
       }
+
+      if (user.role === "teacher" && user.status === "pending") {
+        document.body.innerHTML = `
+          <div style="min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0b0f19; color:#fbbf24; font-family:sans-serif; text-align:center; padding:20px;">
+            <div style="font-size:4rem; margin-bottom:16px;">⏳</div>
+            <h1 style="font-size:2.2rem; font-weight:800; color:#fbbf24; margin-bottom:10px;">Cuenta Pendiente de Aprobación</h1>
+            <p style="font-size:1.05rem; color:#cbd5e1; max-width:520px; margin-bottom:24px;">
+              Hola, <strong>${user.fullName || user.nick}</strong>. Tu solicitud de cuenta docente ha sido registrada pero aún no ha sido autorizada por el Owner (TheKeas).
+            </p>
+            <a href="index.html" style="background:#4b5563; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:700;">
+              Regresar al Inicio
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      if (containerRoot) containerRoot.style.display = "flex";
 
       document.getElementById("teacher-name-display").textContent = user.fullName || user.nick;
 

@@ -12,7 +12,7 @@
 </head>
 <body>
 
-  <div class="app-container">
+  <div class="app-container" id="owner-app-container" style="display:none;">
     <!-- Sidebar del Owner (TheKeas) -->
     <aside class="sidebar">
       <div class="brand">
@@ -112,31 +112,35 @@
     </main>
   </div>
 
-  <script src="auth-manager.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth-service.js"></script>
   <script src="certificate-generator.js"></script>
   <script src="questions-bank.js"></script>
   <script src="tenses-data.js"></script>
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      let user = window.AuthManager.getCurrentUser();
+    document.addEventListener("DOMContentLoaded", async () => {
+      const containerRoot = document.getElementById("owner-app-container");
+      let user = await window.AuthService.getCurrentUserAsync();
 
-      // Si no ha iniciado sesión como TheKeas, solicitar credenciales
+      // Validación estricta en servidor/JWT: Si no es Owner, se rechaza de inmediato con 403
       if (!user || user.role !== "owner") {
-        const pass = prompt("Acceso restringido al Propietario (TheKeas).\nPor favor ingresa la contraseña de TheKeas:");
-        if (pass) {
-          const res = window.AuthManager.login("TheKeas", pass);
-          if (res.success) {
-            user = res.user;
-          } else {
-            alert(res.message || "Acceso denegado.");
-            window.location.href = "index.html";
-            return;
-          }
-        } else {
-          window.location.href = "index.html";
-          return;
-        }
+        document.body.innerHTML = `
+          <div style="min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0b0f19; color:#f87171; font-family:sans-serif; text-align:center; padding:20px;">
+            <div style="font-size:4rem; margin-bottom:16px;">🛑</div>
+            <h1 style="font-size:2.5rem; font-weight:800; color:#f43f5e; margin-bottom:10px;">403 Forbidden</h1>
+            <p style="font-size:1.1rem; color:#cbd5e1; max-width:480px; margin-bottom:24px;">
+              Acceso Restringido. Esta página es de uso exclusivo para el Propietario (TheKeas). Tu sesión no posee permisos para consultar esta sección.
+            </p>
+            <a href="index.html" style="background:#2563eb; color:white; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:700;">
+              Volver a la Página Principal
+            </a>
+          </div>
+        `;
+        return;
       }
+
+      if (containerRoot) containerRoot.style.display = "flex";
 
       const container = document.getElementById("owner-main-container");
       const navApprovals = document.getElementById("owner-nav-approvals");
@@ -288,11 +292,6 @@
                 <input type="text" id="ct-institution" class="form-input" value="Promoción Social" required />
               </div>
 
-              <div class="form-group">
-                <label class="form-label" for="ct-idcard">Cédula de Ciudadanía / Documento:</label>
-                <input type="text" id="ct-idcard" class="form-input" placeholder="Número de cédula" />
-              </div>
-
               <div id="ct-err-msg" style="color:#f43f5e; font-size:0.85rem; margin-bottom:12px; display:none;"></div>
 
               <div style="display:flex; justify-content:flex-end; margin-top:16px;">
@@ -304,20 +303,21 @@
           </div>
         `;
 
-        document.getElementById("owner-create-teacher-form")?.addEventListener("submit", (e) => {
+        document.getElementById("owner-create-teacher-form")?.addEventListener("submit", async (e) => {
           e.preventDefault();
           const fullName = document.getElementById("ct-fullname").value.trim();
           const nick = document.getElementById("ct-nick").value.trim();
           const password = document.getElementById("ct-password").value.trim();
           const institution = document.getElementById("ct-institution").value.trim();
-          const idCard = document.getElementById("ct-idcard").value.trim();
 
-          const res = window.AuthManager.createTeacherDirectly({
+          const res = await window.AuthService.register({
             fullName,
             nick,
             password,
             institution,
-            idCard
+            role: "teacher",
+            grade: "Docente",
+            consent1581: true
           });
 
           const errEl = document.getElementById("ct-err-msg");

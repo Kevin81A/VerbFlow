@@ -226,10 +226,14 @@
               <input type="text" id="auth-grade" class="form-input" placeholder="Ej: 1102" value="1102" />
             </div>
 
-            <!-- Campo específico para Profesor -->
-            <div class="form-group" id="teacher-idcard-group" style="display:none;">
-              <label class="form-label" for="auth-idcard">Cédula de Ciudadanía / Documento:</label>
-              <input type="text" id="auth-idcard" class="form-input" placeholder="Número de identificación" />
+            <!-- Consentimiento informado Ley 1581 de 2012 (Colombia) y Menores -->
+            <div class="form-group" style="margin-top:6px;">
+              <label class="consent-checkbox-label" style="display:flex; align-items:flex-start; gap:8px; font-size:0.82rem; color:var(--text-secondary); cursor:pointer;">
+                <input type="checkbox" id="auth-consent-1581" required style="margin-top:3px; cursor:pointer;" />
+                <span>
+                  Declaro que soy mayor de edad o cuento con la autorización de mis padres/acudiente para el tratamiento educativo de mis datos conforme a la <strong>Ley 1581 de 2012</strong>.
+                </span>
+              </label>
             </div>
 
             <p style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
@@ -461,7 +465,9 @@
   </div>
 
   <!-- Scripts en orden de dependencia -->
-  <script src="auth-manager.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth-service.js"></script>
   <script src="certificate-generator.js"></script>
   <script src="questions-bank.js"></script>
   <script src="tenses-data.js"></script>

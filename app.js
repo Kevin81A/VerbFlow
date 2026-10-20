@@ -1155,10 +1155,8 @@ document.addEventListener("DOMContentLoaded", () => {
   authRoleSelect?.addEventListener("change", (e) => {
     if (e.target.value === "teacher") {
       studentGradeGroup.style.display = "none";
-      teacherIdcardGroup.style.display = "flex";
     } else {
       studentGradeGroup.style.display = "flex";
-      teacherIdcardGroup.style.display = "none";
     }
   });
 
@@ -1187,14 +1185,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (approvalWatcherInterval) clearInterval(approvalWatcherInterval);
 
-    approvalWatcherInterval = setInterval(() => {
-      const currentUser = window.AuthManager.getCurrentUser();
+    approvalWatcherInterval = setInterval(async () => {
+      const currentUser = window.AuthService.getCurrentUser();
       if (currentUser && currentUser.role === "teacher") {
         clearInterval(approvalWatcherInterval);
         return;
       }
 
-      const approvedUser = window.AuthManager.checkWaitingApproval(waitingNick);
+      const approvedUser = await window.AuthService.checkWaitingApproval(waitingNick);
       if (approvedUser) {
         clearInterval(approvalWatcherInterval);
         alert(`¡Excelente noticia, Profesor(a) ${approvedUser.fullName || approvedUser.nick}!\n\nTu solicitud de acceso ha sido aprobada y autorizada por TheKeas.\n\nAccediendo automáticamente a tu panel docente...`);
@@ -1203,7 +1201,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 2000);
   }
 
-  document.getElementById("auth-form")?.addEventListener("submit", (e) => {
+  document.getElementById("auth-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const nick = document.getElementById("auth-nick").value.trim();
     const password = document.getElementById("auth-password").value.trim();
@@ -1211,20 +1209,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const fullName = document.getElementById("auth-fullname").value.trim();
     const institution = document.getElementById("auth-institution").value.trim();
     const grade = document.getElementById("auth-grade").value.trim();
-    const idCard = document.getElementById("auth-idcard").value.trim();
+    const consent1581 = document.getElementById("auth-consent-1581")?.checked;
 
     authErrorMsg.style.display = "none";
     authSuccessMsg.style.display = "none";
 
     if (isRegisterMode) {
-      const res = window.AuthManager.register({
+      const res = await window.AuthService.register({
         nick,
         password,
         role,
         fullName,
         institution,
         grade,
-        idCard
+        consent1581
       });
 
       if (!res.success) {
@@ -1249,7 +1247,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     } else {
-      const res = window.AuthManager.login(nick, password);
+      const res = await window.AuthService.login(nick, password);
       if (!res.success) {
         if (res.pending) {
           authErrorMsg.style.display = "none";
